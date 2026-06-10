@@ -4,7 +4,7 @@ const EmptyState: React.FC = () => {
   return (
     <div className="flex h-full flex-col items-center justify-center gap-4 px-8 text-center">
       <div className="relative">
-        <div className="flex h-20 w-20 items-center justify-center rounded-2xl border border-slate-900/[0.08] bg-white/[0.68] shadow-[0_12px_30px_rgba(31,41,55,0.10),0_1px_0_rgba(255,255,255,0.9)_inset] backdrop-blur-xl">
+        <div className="flex h-20 w-20 items-center justify-center rounded-2xl border border-slate-200 bg-white shadow-[0_8px_20px_rgba(31,41,55,0.08)]">
           <svg
             className="h-8 w-8 text-[#0067c0]/65"
             fill="none"

@@ -60,9 +60,9 @@ const ClipboardItem: React.FC<ClipboardItemProps> = ({ entry, onDelete }) => {
       className={`
         group relative mx-2 mb-2 cursor-pointer overflow-hidden rounded-xl
         border border-slate-900/[0.08] transition-all duration-200
-        shadow-[0_1px_2px_rgba(31,41,55,0.05),0_1px_0_rgba(255,255,255,0.85)_inset]
-        hover:-translate-y-0.5 hover:border-[#0067c0]/20 hover:shadow-[0_8px_24px_rgba(31,41,55,0.12),0_1px_0_rgba(255,255,255,0.92)_inset]
-        ${hover ? "bg-white/[0.88]" : "bg-white/[0.62]"}
+        shadow-[0_1px_2px_rgba(31,41,55,0.05)]
+        hover:-translate-y-0.5 hover:border-[#0067c0]/20 hover:bg-white hover:shadow-[0_8px_20px_rgba(31,41,55,0.10)]
+        ${hover ? "bg-white" : "bg-white"}
       `}
     >
       <div className="p-3">
@@ -116,8 +116,8 @@ const ClipboardItem: React.FC<ClipboardItemProps> = ({ entry, onDelete }) => {
           onDelete(entry.id);
         }}
         className={`
-          absolute right-2 top-2 rounded-lg border border-slate-900/[0.08] bg-white/[0.82] p-1.5
-          text-slate-400 shadow-sm backdrop-blur-xl transition-all duration-150
+          absolute right-2 top-2 rounded-lg border border-slate-200 bg-white p-1.5
+          text-slate-400 shadow-sm transition-all duration-150
           hover:border-[#c42b1c]/20 hover:bg-[#c42b1c]/10 hover:text-[#c42b1c]
           ${hover ? "opacity-100 scale-100" : "opacity-0 scale-90"}
         `}
@@ -130,7 +130,7 @@ const ClipboardItem: React.FC<ClipboardItemProps> = ({ entry, onDelete }) => {
 
       {/* Copied indicator */}
       {copied && (
-        <div className="absolute inset-0 flex animate-fade-in items-center justify-center bg-white/[0.82] backdrop-blur-xl">
+        <div className="absolute inset-0 flex animate-fade-in items-center justify-center bg-white">
           <span className="rounded-lg bg-[#107c10]/10 px-3 py-1.5 text-xs font-semibold text-[#107c10]">
             已复制
           </span>

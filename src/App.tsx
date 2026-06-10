@@ -23,20 +23,19 @@ const App: React.FC = () => {
       className="
         w-full h-full overflow-hidden rounded-[18px]
         border border-slate-200
-        bg-white/[0.72] text-slate-900
-        shadow-[0_24px_64px_rgba(31,41,55,0.18),0_2px_8px_rgba(31,41,55,0.08),0_0_0_1px_rgba(255,255,255,0.72)_inset]
-        backdrop-blur-2xl
+        bg-white text-slate-900
+        shadow-[0_18px_44px_rgba(31,41,55,0.16),0_2px_8px_rgba(31,41,55,0.08)]
       "
     >
       {/* Title bar — drag region */}
       <div
         className="
-          flex h-10 items-center justify-between
+          grid h-10 grid-cols-[96px_1fr_96px] items-center
           border-b border-slate-200
           bg-white px-3
         "
       >
-        <div className="drag-region flex items-center gap-2">
+        <div className="drag-region flex h-full items-center gap-2">
           <span className="grid h-4 w-4 grid-cols-2 gap-0.5 rounded-[4px] bg-[#0067c0]/10 p-0.5 text-[#0067c0]">
             <span className="rounded-[1px] bg-current" />
             <span className="rounded-[1px] bg-current opacity-75" />
@@ -47,12 +46,12 @@ const App: React.FC = () => {
             XCopy
           </span>
         </div>
-        <span
-          className="drag-region select-none text-[11px] font-semibold tracking-[0.10em] text-slate-600"
-        >
-          剪贴板历史
-        </span>
-        <div className="flex h-7 w-[60px] items-center justify-end">
+        <div className="drag-region flex h-full items-center justify-center">
+          <span className="select-none text-[11px] font-semibold tracking-[0.10em] text-slate-600">
+            剪贴板历史
+          </span>
+        </div>
+        <div className="no-drag flex h-full items-center justify-end">
           <button
             type="button"
             onClick={handleClose}
@@ -75,7 +74,7 @@ const App: React.FC = () => {
       </div>
 
       {/* Main content */}
-      <div className="h-[calc(100%-40px)] bg-[radial-gradient(circle_at_16%_0%,rgba(0,120,212,0.10),transparent_34%),linear-gradient(135deg,rgba(255,255,255,0.78),rgba(244,248,252,0.74))]">
+      <div className="h-[calc(100%-40px)] bg-slate-50">
         <ClipboardPanel />
       </div>
     </div>

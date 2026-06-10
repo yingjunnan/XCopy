@@ -62,7 +62,7 @@ const ClipboardPanel: React.FC = () => {
             {loading ? "正在同步..." : `${activeCount} 条记录`}
           </span>
           {query && (
-            <span className="max-w-[190px] truncate rounded-md bg-white/[0.55] px-2 py-0.5 text-[11px] font-medium text-slate-500">
+            <span className="max-w-[190px] truncate rounded-md bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-600">
               搜索 "{query}"
             </span>
           )}
@@ -75,7 +75,7 @@ const ClipboardPanel: React.FC = () => {
               {Array.from({ length: 5 }).map((_, i) => (
                 <div
                   key={i}
-                  className="h-16 animate-pulse rounded-xl border border-slate-900/[0.06] bg-white/[0.58]"
+                  className="h-16 animate-pulse rounded-xl border border-slate-200 bg-white"
                   style={{ animationDelay: `${i * 50}ms` }}
                 />
               ))}

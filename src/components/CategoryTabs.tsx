@@ -32,7 +32,7 @@ const CategoryTabs: React.FC<CategoryTabsProps> = ({ current, onChange, counts }
               ${
                 isActive
                   ? "bg-white text-[#005aab] shadow-[0_1px_2px_rgba(31,41,55,0.10),0_0_0_1px_rgba(0,103,192,0.18)]"
-                  : "text-slate-600 hover:bg-white/[0.62] hover:text-slate-900"
+                  : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
               }
             `}
           >
@@ -50,7 +50,7 @@ const CategoryTabs: React.FC<CategoryTabsProps> = ({ current, onChange, counts }
               className={`
                 min-w-[16px] rounded-full px-1 py-0.5 text-center text-[10px] leading-none
                 ${count === 0 ? "invisible" : ""}
-                ${isActive ? "bg-[#0067c0]/10 text-[#005aab]" : "bg-slate-900/[0.06] text-slate-500"}
+                ${isActive ? "bg-[#0067c0]/10 text-[#005aab]" : "bg-slate-200 text-slate-600"}
               `}
             >
               {count}

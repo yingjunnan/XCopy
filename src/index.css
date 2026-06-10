@@ -18,7 +18,7 @@
   --accent: #0067c0;
   --accent-hover: #005aab;
   --border: rgba(31, 41, 55, 0.1);
-  --glass-bg: rgba(255, 255, 255, 0.74);
+  --panel-bg: #ffffff;
   --success: #107c10;
   --warning: #f9a825;
   --danger: #c42b1c;
@@ -54,11 +54,9 @@ body {
   background: rgba(32, 35, 42, 0.28);
 }
 
-/* Glass morphism base */
+/* Solid panel base */
 .glass {
-  background: var(--glass-bg);
-  backdrop-filter: blur(28px) saturate(160%);
-  -webkit-backdrop-filter: blur(28px) saturate(160%);
+  background: var(--panel-bg);
   border: 1px solid var(--border);
 }
 

@@ -11,10 +11,10 @@ const SearchBar: React.FC<SearchBarProps> = ({ value, onChange }) => {
       <div
         className="
           flex items-center gap-2.5 rounded-xl border border-slate-900/[0.10]
-          bg-white/[0.76] px-3.5 py-2.5
-          shadow-[0_1px_2px_rgba(31,41,55,0.06),0_1px_0_rgba(255,255,255,0.9)_inset]
-          backdrop-blur-xl transition-all duration-200
-          focus-within:border-[#0067c0]/50 focus-within:bg-white/90
+          bg-white px-3.5 py-2.5
+          shadow-[0_1px_2px_rgba(31,41,55,0.06)]
+          transition-all duration-200
+          focus-within:border-[#0067c0]/50
           focus-within:shadow-[0_0_0_3px_rgba(0,103,192,0.12),0_1px_2px_rgba(31,41,55,0.06)]
         "
       >
