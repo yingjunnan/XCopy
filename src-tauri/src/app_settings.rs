@@ -70,10 +70,10 @@ pub fn is_auto_start_enabled() -> Result<bool, String> {
 
 fn parse_shortcut(input: &str) -> Result<Shortcut, String> {
     let normalized = normalize_aliases(input);
-    let shortcut = Shortcut::from_str(&normalized).map_err(|e| format!("快捷键无效：{}", e))?;
+    let shortcut = Shortcut::from_str(&normalized).map_err(|e| format!("Invalid shortcut: {}", e))?;
 
     if shortcut.mods.is_empty() {
-        return Err("快捷键至少包含 Ctrl、Alt、Shift 或 Win 中的一个修饰键".to_string());
+        return Err("Shortcut must include Ctrl, Alt, Shift, or Win".to_string());
     }
 
     Ok(shortcut)
@@ -153,29 +153,9 @@ fn display_key(key: String) -> String {
 fn set_platform_auto_start_enabled(enabled: bool) -> Result<(), String> {
     if enabled {
         let exe = std::env::current_exe().map_err(|e| e.to_string())?;
-        run_reg_command(&[
-            "add",
-            "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run",
-            "/v",
-            AUTOSTART_VALUE_NAME,
-            "/t",
-            "REG_SZ",
-            "/d",
-            &format!("\"{}\"", exe.display()),
-            "/f",
-        ])
+        set_run_key_value(AUTOSTART_VALUE_NAME, &format!("\"{}\"", exe.display()))
     } else {
-        match run_reg_command(&[
-            "delete",
-            "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run",
-            "/v",
-            AUTOSTART_VALUE_NAME,
-            "/f",
-        ]) {
-            Ok(()) => Ok(()),
-            Err(err) if err.contains("unable to find") || err.contains("找不到") => Ok(()),
-            Err(err) => Err(err),
-        }
+        delete_run_key_value(AUTOSTART_VALUE_NAME)
     }
 }
 
@@ -186,17 +166,7 @@ fn set_platform_auto_start_enabled(_enabled: bool) -> Result<(), String> {
 
 #[cfg(target_os = "windows")]
 fn is_platform_auto_start_enabled() -> Result<bool, String> {
-    let output = std::process::Command::new("reg")
-        .args([
-            "query",
-            "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run",
-            "/v",
-            AUTOSTART_VALUE_NAME,
-        ])
-        .output()
-        .map_err(|e| e.to_string())?;
-
-    Ok(output.status.success())
+    run_key_value_exists(AUTOSTART_VALUE_NAME)
 }
 
 #[cfg(not(target_os = "windows"))]
@@ -205,19 +175,144 @@ fn is_platform_auto_start_enabled() -> Result<bool, String> {
 }
 
 #[cfg(target_os = "windows")]
-fn run_reg_command(args: &[&str]) -> Result<(), String> {
-    let output = std::process::Command::new("reg")
-        .args(args)
-        .output()
-        .map_err(|e| e.to_string())?;
+const RUN_KEY_PATH: &str = "Software\\Microsoft\\Windows\\CurrentVersion\\Run";
 
-    if output.status.success() {
-        return Ok(());
+#[cfg(target_os = "windows")]
+fn set_run_key_value(name: &str, value: &str) -> Result<(), String> {
+    use windows::Win32::Foundation::ERROR_SUCCESS;
+    use windows::Win32::System::Registry::{
+        RegCloseKey, RegCreateKeyW, RegSetValueExW, HKEY, HKEY_CURRENT_USER, REG_SZ,
+    };
+
+    unsafe {
+        let mut key = HKEY::default();
+        let key_path = pcwstr_from_str(RUN_KEY_PATH);
+        let status = RegCreateKeyW(HKEY_CURRENT_USER, key_path.as_pcwstr(), &mut key);
+        win32_status(status, "open Run registry key")?;
+
+        let value_name = pcwstr_from_str(name);
+        let value_wide = wide_null(value);
+        let bytes = std::slice::from_raw_parts(
+            value_wide.as_ptr().cast::<u8>(),
+            value_wide.len() * std::mem::size_of::<u16>(),
+        );
+        let status = RegSetValueExW(key, value_name.as_pcwstr(), 0, REG_SZ, Some(bytes));
+        let close_status = RegCloseKey(key);
+
+        win32_status(status, "set autostart registry value")?;
+        if close_status != ERROR_SUCCESS {
+            win32_status(close_status, "close Run registry key")?;
+        }
+
+        Ok(())
     }
+}
 
-    let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
-    let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
-    Err(if stderr.is_empty() { stdout } else { stderr })
+#[cfg(target_os = "windows")]
+fn delete_run_key_value(name: &str) -> Result<(), String> {
+    use windows::Win32::Foundation::{ERROR_FILE_NOT_FOUND, ERROR_SUCCESS};
+    use windows::Win32::System::Registry::{
+        RegCloseKey, RegDeleteValueW, RegOpenKeyExW, HKEY, HKEY_CURRENT_USER, KEY_SET_VALUE,
+    };
+
+    unsafe {
+        let mut key = HKEY::default();
+        let key_path = pcwstr_from_str(RUN_KEY_PATH);
+        let status = RegOpenKeyExW(
+            HKEY_CURRENT_USER,
+            key_path.as_pcwstr(),
+            0,
+            KEY_SET_VALUE,
+            &mut key,
+        );
+        if status == ERROR_FILE_NOT_FOUND {
+            return Ok(());
+        }
+        win32_status(status, "open Run registry key")?;
+
+        let value_name = pcwstr_from_str(name);
+        let status = RegDeleteValueW(key, value_name.as_pcwstr());
+        let close_status = RegCloseKey(key);
+
+        if status != ERROR_FILE_NOT_FOUND {
+            win32_status(status, "delete autostart registry value")?;
+        }
+        if close_status != ERROR_SUCCESS {
+            win32_status(close_status, "close Run registry key")?;
+        }
+
+        Ok(())
+    }
+}
+
+#[cfg(target_os = "windows")]
+fn run_key_value_exists(name: &str) -> Result<bool, String> {
+    use windows::Win32::Foundation::ERROR_FILE_NOT_FOUND;
+    use windows::Win32::System::Registry::{
+        RegCloseKey, RegOpenKeyExW, RegQueryValueExW, HKEY, HKEY_CURRENT_USER, KEY_QUERY_VALUE,
+    };
+
+    unsafe {
+        let mut key = HKEY::default();
+        let key_path = pcwstr_from_str(RUN_KEY_PATH);
+        let status = RegOpenKeyExW(
+            HKEY_CURRENT_USER,
+            key_path.as_pcwstr(),
+            0,
+            KEY_QUERY_VALUE,
+            &mut key,
+        );
+        if status == ERROR_FILE_NOT_FOUND {
+            return Ok(false);
+        }
+        win32_status(status, "open Run registry key")?;
+
+        let value_name = pcwstr_from_str(name);
+        let status = RegQueryValueExW(key, value_name.as_pcwstr(), None, None, None, None);
+        let close_status = RegCloseKey(key);
+
+        if status == ERROR_FILE_NOT_FOUND {
+            return Ok(false);
+        }
+        win32_status(status, "query autostart registry value")?;
+        win32_status(close_status, "close Run registry key")?;
+
+        Ok(true)
+    }
+}
+
+#[cfg(target_os = "windows")]
+struct WideString(Vec<u16>);
+
+#[cfg(target_os = "windows")]
+impl WideString {
+    fn as_pcwstr(&self) -> windows::core::PCWSTR {
+        windows::core::PCWSTR(self.0.as_ptr())
+    }
+}
+
+#[cfg(target_os = "windows")]
+fn pcwstr_from_str(value: &str) -> WideString {
+    WideString(wide_null(value))
+}
+
+#[cfg(target_os = "windows")]
+fn wide_null(value: &str) -> Vec<u16> {
+    value.encode_utf16().chain(std::iter::once(0)).collect()
+}
+
+#[cfg(target_os = "windows")]
+fn win32_status(
+    status: windows::Win32::Foundation::WIN32_ERROR,
+    action: &str,
+) -> Result<(), String> {
+    use windows::Win32::Foundation::ERROR_SUCCESS;
+
+    if status == ERROR_SUCCESS {
+        Ok(())
+    } else {
+        Err(format!("{} failed with code {}", action, status.0))
+    }
 }
 
 #[cfg(test)]
@@ -255,7 +350,7 @@ mod tests {
     fn rejects_shortcuts_without_modifier_keys() {
         let err = normalize_shortcut_input("V").unwrap_err();
 
-        assert!(err.contains("至少包含"));
+        assert!(err.contains("must include"));
     }
 
     #[test]
