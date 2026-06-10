@@ -5,6 +5,7 @@ mod models;
 mod window_tracker;
 
 use db::Database;
+use db::RetentionPolicy;
 use models::{ClipboardEntry, ClipboardFilter};
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
@@ -80,14 +81,20 @@ fn save_app_settings(
     settings: app_settings::AppSettings,
 ) -> Result<app_settings::AppSettings, String> {
     let normalized_shortcut = app_settings::normalize_display_shortcut(&settings.shortcut)?;
-    let next_settings = app_settings::AppSettings {
+    let next_settings = app_settings::normalize_settings(app_settings::AppSettings {
         auto_start: settings.auto_start,
         shortcut: normalized_shortcut,
-    };
+        max_history_entries: settings.max_history_entries,
+        retention_days: settings.retention_days,
+    })?;
 
     register_app_shortcut(&app, &next_settings.shortcut)?;
     app_settings::set_auto_start_enabled(next_settings.auto_start)?;
     app_settings::save_settings_to_path(&state.settings_path, &next_settings)?;
+    state.db.set_retention_policy(RetentionPolicy {
+        max_entries: next_settings.max_history_entries,
+        retention_days: next_settings.retention_days,
+    })?;
 
     let mut stored = state
         .settings
@@ -213,6 +220,10 @@ pub fn run() {
                 app_settings::is_auto_start_enabled().unwrap_or(settings.auto_start);
 
             let db = Arc::new(Database::new(app_data_dir.clone()).expect("Failed to init DB"));
+            db.set_retention_policy(RetentionPolicy {
+                max_entries: settings.max_history_entries,
+                retention_days: settings.retention_days,
+            })?;
             let db_clone = db.clone();
             let clipboard_state = Arc::new(clipboard::ClipboardState::default());
             let clipboard_state_clone = clipboard_state.clone();

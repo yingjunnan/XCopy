@@ -18,6 +18,8 @@ export interface ClipboardFilter {
 export interface AppSettings {
   autoStart: boolean;
   shortcut: string;
+  maxHistoryEntries: number;
+  retentionDays: number;
 }
 
 export type CategoryType = 'all' | 'text' | 'link' | 'image';

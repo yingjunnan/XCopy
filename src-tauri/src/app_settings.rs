@@ -4,6 +4,12 @@ use std::str::FromStr;
 use tauri_plugin_global_shortcut::{Modifiers, Shortcut};
 
 pub const DEFAULT_SHORTCUT: &str = "Ctrl+Shift+V";
+pub const DEFAULT_MAX_HISTORY_ENTRIES: usize = 1000;
+pub const DEFAULT_RETENTION_DAYS: i64 = 30;
+pub const MIN_HISTORY_ENTRIES: usize = 1;
+pub const MAX_HISTORY_ENTRIES: usize = 100_000;
+pub const MIN_RETENTION_DAYS: i64 = 1;
+pub const MAX_RETENTION_DAYS: i64 = 3650;
 
 const SETTINGS_FILE_NAME: &str = "settings.json";
 const AUTOSTART_VALUE_NAME: &str = "XCopy";
@@ -13,6 +19,10 @@ const AUTOSTART_VALUE_NAME: &str = "XCopy";
 pub struct AppSettings {
     pub auto_start: bool,
     pub shortcut: String,
+    #[serde(default = "default_max_history_entries")]
+    pub max_history_entries: usize,
+    #[serde(default = "default_retention_days")]
+    pub retention_days: i64,
 }
 
 impl Default for AppSettings {
@@ -20,8 +30,18 @@ impl Default for AppSettings {
         Self {
             auto_start: false,
             shortcut: DEFAULT_SHORTCUT.to_string(),
+            max_history_entries: DEFAULT_MAX_HISTORY_ENTRIES,
+            retention_days: DEFAULT_RETENTION_DAYS,
         }
     }
+}
+
+fn default_max_history_entries() -> usize {
+    DEFAULT_MAX_HISTORY_ENTRIES
+}
+
+fn default_retention_days() -> i64 {
+    DEFAULT_RETENTION_DAYS
 }
 
 pub fn settings_path(app_data_dir: &Path) -> std::path::PathBuf {
@@ -34,9 +54,8 @@ pub fn load_settings_from_path(path: &Path) -> Result<AppSettings, String> {
     }
 
     let content = std::fs::read_to_string(path).map_err(|e| e.to_string())?;
-    let mut settings: AppSettings = serde_json::from_str(&content).map_err(|e| e.to_string())?;
-    settings.shortcut = normalize_display_shortcut(&settings.shortcut)?;
-    Ok(settings)
+    let settings: AppSettings = serde_json::from_str(&content).map_err(|e| e.to_string())?;
+    normalize_settings(settings)
 }
 
 pub fn save_settings_to_path(path: &Path, settings: &AppSettings) -> Result<(), String> {
@@ -44,10 +63,20 @@ pub fn save_settings_to_path(path: &Path, settings: &AppSettings) -> Result<(), 
         std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
     }
 
-    let mut normalized = settings.clone();
-    normalized.shortcut = normalize_display_shortcut(&settings.shortcut)?;
+    let normalized = normalize_settings(settings.clone())?;
     let content = serde_json::to_string_pretty(&normalized).map_err(|e| e.to_string())?;
     std::fs::write(path, content).map_err(|e| e.to_string())
+}
+
+pub fn normalize_settings(mut settings: AppSettings) -> Result<AppSettings, String> {
+    settings.shortcut = normalize_display_shortcut(&settings.shortcut)?;
+    settings.max_history_entries = settings
+        .max_history_entries
+        .clamp(MIN_HISTORY_ENTRIES, MAX_HISTORY_ENTRIES);
+    settings.retention_days = settings
+        .retention_days
+        .clamp(MIN_RETENTION_DAYS, MAX_RETENTION_DAYS);
+    Ok(settings)
 }
 
 pub fn normalize_shortcut_input(input: &str) -> Result<String, String> {
@@ -337,6 +366,8 @@ mod tests {
 
         assert!(!settings.auto_start);
         assert_eq!(settings.shortcut, DEFAULT_SHORTCUT);
+        assert_eq!(settings.max_history_entries, DEFAULT_MAX_HISTORY_ENTRIES);
+        assert_eq!(settings.retention_days, DEFAULT_RETENTION_DAYS);
     }
 
     #[test]
@@ -368,6 +399,8 @@ mod tests {
         let settings = AppSettings {
             auto_start: true,
             shortcut: "control+alt+KeyX".to_string(),
+            max_history_entries: 250,
+            retention_days: 14,
         };
 
         save_settings_to_path(&path, &settings).unwrap();
@@ -379,7 +412,39 @@ mod tests {
             AppSettings {
                 auto_start: true,
                 shortcut: "Ctrl+Alt+X".to_string(),
+                max_history_entries: 250,
+                retention_days: 14,
             }
         );
+    }
+
+    #[test]
+    fn loads_older_settings_with_default_retention_values() {
+        let path = temp_settings_path("legacy");
+        std::fs::write(
+            &path,
+            r#"{"autoStart":true,"shortcut":"Ctrl+Shift+V"}"#,
+        )
+        .unwrap();
+
+        let loaded = load_settings_from_path(&path).unwrap();
+        let _ = std::fs::remove_file(&path);
+
+        assert_eq!(loaded.max_history_entries, DEFAULT_MAX_HISTORY_ENTRIES);
+        assert_eq!(loaded.retention_days, DEFAULT_RETENTION_DAYS);
+    }
+
+    #[test]
+    fn clamps_retention_settings_to_supported_range() {
+        let settings = normalize_settings(AppSettings {
+            auto_start: false,
+            shortcut: DEFAULT_SHORTCUT.to_string(),
+            max_history_entries: 0,
+            retention_days: 0,
+        })
+        .unwrap();
+
+        assert_eq!(settings.max_history_entries, MIN_HISTORY_ENTRIES);
+        assert_eq!(settings.retention_days, MIN_RETENTION_DAYS);
     }
 }

@@ -5,6 +5,8 @@ import type { AppSettings } from "../types";
 const DEFAULT_SETTINGS: AppSettings = {
   autoStart: false,
   shortcut: "Ctrl+Shift+V",
+  maxHistoryEntries: 1000,
+  retentionDays: 30,
 };
 
 const isTauriRuntime = () => typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
@@ -57,6 +59,11 @@ function shortcutFromEvent(event: React.KeyboardEvent<HTMLButtonElement>) {
   return parts.join("+");
 }
 
+function clampNumber(value: number, min: number, max: number) {
+  if (!Number.isFinite(value)) return min;
+  return Math.min(max, Math.max(min, Math.round(value)));
+}
+
 const SettingsPanel: React.FC = () => {
   const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS);
   const [savedSettings, setSavedSettings] = useState<AppSettings>(DEFAULT_SETTINGS);
@@ -96,7 +103,9 @@ const SettingsPanel: React.FC = () => {
   const changed = useMemo(
     () =>
       settings.autoStart !== savedSettings.autoStart ||
-      settings.shortcut !== savedSettings.shortcut,
+      settings.shortcut !== savedSettings.shortcut ||
+      settings.maxHistoryEntries !== savedSettings.maxHistoryEntries ||
+      settings.retentionDays !== savedSettings.retentionDays,
     [settings, savedSettings]
   );
 
@@ -109,14 +118,36 @@ const SettingsPanel: React.FC = () => {
     }));
   }, []);
 
+  const updateNumericSetting = useCallback(
+    (key: "maxHistoryEntries" | "retentionDays", value: string) => {
+      setMessage("");
+      setError("");
+      const parsed = Number(value);
+      const min = 1;
+      const max = key === "maxHistoryEntries" ? 100000 : 3650;
+      setSettings((current) => ({
+        ...current,
+        [key]: clampNumber(parsed, min, max),
+      }));
+    },
+    []
+  );
+
   const saveSettings = useCallback(async () => {
     setSaving(true);
     setMessage("");
     setError("");
 
+    const normalizedSettings: AppSettings = {
+      ...settings,
+      maxHistoryEntries: clampNumber(settings.maxHistoryEntries, 1, 100000),
+      retentionDays: clampNumber(settings.retentionDays, 1, 3650),
+    };
+
     if (!isTauriRuntime()) {
       window.setTimeout(() => {
-        setSavedSettings(settings);
+        setSettings(normalizedSettings);
+        setSavedSettings(normalizedSettings);
         setMessage("已保存");
         setSaving(false);
       }, 200);
@@ -124,7 +155,9 @@ const SettingsPanel: React.FC = () => {
     }
 
     try {
-      const saved = await invoke<AppSettings>("save_app_settings", { settings });
+      const saved = await invoke<AppSettings>("save_app_settings", {
+        settings: normalizedSettings,
+      });
       setSettings(saved);
       setSavedSettings(saved);
       setMessage("已保存");
@@ -245,6 +278,63 @@ const SettingsPanel: React.FC = () => {
             >
               {recording ? "等待按键" : settings.shortcut}
             </button>
+          </section>
+
+          <section className="rounded-xl border border-slate-900/[0.08] bg-white p-4 shadow-[0_1px_2px_rgba(31,41,55,0.05)]">
+            <div className="mb-3">
+              <h2 className="text-[13px] font-semibold text-slate-900">历史保留</h2>
+              <p className="mt-1 text-[11px] leading-4 text-slate-500">
+                推荐保留 1000 条、30 天。超出任一条件会自动清理。
+              </p>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <label className="block">
+                <span className="mb-1 block text-[11px] font-semibold text-slate-500">
+                  最多条数
+                </span>
+                <input
+                  type="number"
+                  min={1}
+                  max={100000}
+                  step={100}
+                  value={settings.maxHistoryEntries}
+                  onChange={(event) =>
+                    updateNumericSetting("maxHistoryEntries", event.target.value)
+                  }
+                  disabled={loading || saving}
+                  className="
+                    h-10 w-full rounded-xl border border-slate-900/[0.10] bg-slate-50 px-3
+                    text-[13px] font-semibold text-slate-900 outline-none
+                    transition-all duration-150 focus:border-[#0067c0]/50
+                    focus:shadow-[0_0_0_3px_rgba(0,103,192,0.12)]
+                    disabled:cursor-not-allowed disabled:opacity-60
+                  "
+                />
+              </label>
+              <label className="block">
+                <span className="mb-1 block text-[11px] font-semibold text-slate-500">
+                  保留天数
+                </span>
+                <input
+                  type="number"
+                  min={1}
+                  max={3650}
+                  step={1}
+                  value={settings.retentionDays}
+                  onChange={(event) =>
+                    updateNumericSetting("retentionDays", event.target.value)
+                  }
+                  disabled={loading || saving}
+                  className="
+                    h-10 w-full rounded-xl border border-slate-900/[0.10] bg-slate-50 px-3
+                    text-[13px] font-semibold text-slate-900 outline-none
+                    transition-all duration-150 focus:border-[#0067c0]/50
+                    focus:shadow-[0_0_0_3px_rgba(0,103,192,0.12)]
+                    disabled:cursor-not-allowed disabled:opacity-60
+                  "
+                />
+              </label>
+            </div>
           </section>
         </div>
       </div>
