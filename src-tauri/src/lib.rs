@@ -58,6 +58,11 @@ fn read_image_file(path: String) -> Result<String, String> {
     Ok(BASE64.encode(&bytes))
 }
 
+#[tauri::command]
+fn hide_main_window(window: tauri::WebviewWindow) -> Result<(), String> {
+    window.hide().map_err(|e| e.to_string())
+}
+
 fn request_history_refresh(window: &tauri::WebviewWindow) {
     let _ = window.emit("window-shown", ());
     let _ = window.eval("window.__XCOPY_REFRESH_HISTORY?.();");
@@ -184,6 +189,7 @@ pub fn run() {
             clear_history,
             get_last_entry,
             read_image_file,
+            hide_main_window,
         ])
         .on_window_event(|window, event| {
             if let tauri::WindowEvent::Focused(false) = event {
