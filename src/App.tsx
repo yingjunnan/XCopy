@@ -45,8 +45,8 @@ const App: React.FC = () => {
           </span>
         </div>
         <span
-          data-tauri-drag-region={false}
-          className="no-drag select-none text-[11px] font-medium tracking-[0.10em] text-slate-400"
+          data-tauri-drag-region
+          className="drag-region select-none text-[11px] font-medium tracking-[0.10em] text-slate-400"
         >
           剪贴板历史
         </span>
