@@ -39,12 +39,12 @@ const App: React.FC = () => {
         "
       >
         <div className="drag-region flex h-full items-center gap-2">
-          <span className="grid h-4 w-4 grid-cols-2 gap-0.5 rounded-[4px] bg-[#0067c0]/10 p-0.5 text-[#0067c0]">
-            <span className="rounded-[1px] bg-current" />
-            <span className="rounded-[1px] bg-current opacity-75" />
-            <span className="rounded-[1px] bg-current opacity-75" />
-            <span className="rounded-[1px] bg-current" />
-          </span>
+          <img
+            src="/xcopy.png"
+            alt=""
+            draggable={false}
+            className="h-5 w-5 select-none rounded-[5px] object-cover"
+          />
           <span className="select-none text-[12px] font-semibold text-slate-700">
             XCopy
           </span>
