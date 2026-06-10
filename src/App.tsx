@@ -20,13 +20,14 @@ const App: React.FC = () => {
 
   return (
     <div
+      onContextMenu={(event) => event.preventDefault()}
       className="
-        w-full h-full overflow-hidden rounded-[18px]
-        border border-slate-200
+        relative w-full h-full overflow-hidden rounded-[18px]
         bg-white text-slate-900
-        shadow-[0_18px_44px_rgba(31,41,55,0.16),0_2px_8px_rgba(31,41,55,0.08)]
       "
     >
+      <div className="pointer-events-none absolute inset-0 z-20 rounded-[18px] ring-1 ring-inset ring-slate-300" />
+
       {/* Title bar — drag region */}
       <div
         className="
