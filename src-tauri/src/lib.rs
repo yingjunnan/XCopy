@@ -1,3 +1,4 @@
+mod app_settings;
 mod clipboard;
 mod db;
 mod models;
@@ -6,7 +7,7 @@ mod window_tracker;
 use db::Database;
 use models::{ClipboardEntry, ClipboardFilter};
 use std::path::PathBuf;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use tauri::{
     menu::{Menu, MenuItem, PredefinedMenuItem},
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
@@ -20,6 +21,8 @@ struct AppState {
     db: Arc<Database>,
     clipboard_state: Arc<clipboard::ClipboardState>,
     app_data_dir: PathBuf,
+    settings_path: PathBuf,
+    settings: Mutex<app_settings::AppSettings>,
 }
 
 #[tauri::command]
@@ -56,6 +59,43 @@ fn read_image_file(path: String) -> Result<String, String> {
     use base64::{engine::general_purpose::STANDARD as BASE64, Engine as _};
     let bytes = std::fs::read(&path).map_err(|e| e.to_string())?;
     Ok(BASE64.encode(&bytes))
+}
+
+#[tauri::command]
+fn get_app_settings(state: tauri::State<AppState>) -> Result<app_settings::AppSettings, String> {
+    let mut settings = state
+        .settings
+        .lock()
+        .map_err(|_| "设置状态已锁定".to_string())?
+        .clone();
+
+    settings.auto_start = app_settings::is_auto_start_enabled().unwrap_or(settings.auto_start);
+    Ok(settings)
+}
+
+#[tauri::command]
+fn save_app_settings(
+    app: tauri::AppHandle,
+    state: tauri::State<AppState>,
+    settings: app_settings::AppSettings,
+) -> Result<app_settings::AppSettings, String> {
+    let normalized_shortcut = app_settings::normalize_display_shortcut(&settings.shortcut)?;
+    let next_settings = app_settings::AppSettings {
+        auto_start: settings.auto_start,
+        shortcut: normalized_shortcut,
+    };
+
+    register_app_shortcut(&app, &next_settings.shortcut)?;
+    app_settings::set_auto_start_enabled(next_settings.auto_start)?;
+    app_settings::save_settings_to_path(&state.settings_path, &next_settings)?;
+
+    let mut stored = state
+        .settings
+        .lock()
+        .map_err(|_| "设置状态已锁定".to_string())?;
+    *stored = next_settings.clone();
+
+    Ok(next_settings)
 }
 
 #[tauri::command]
@@ -100,6 +140,26 @@ fn show_main_window(app: &tauri::AppHandle, capture_clipboard: bool) {
     }
 }
 
+fn register_app_shortcut(app: &tauri::AppHandle, shortcut: &str) -> Result<(), String> {
+    use tauri_plugin_global_shortcut::{GlobalShortcutExt, ShortcutState};
+
+    let registration_shortcut = app_settings::normalize_shortcut_input(shortcut)?;
+    let shortcuts = app.global_shortcut();
+
+    if let Err(e) = shortcuts.unregister_all() {
+        eprintln!("[XCopy] failed to unregister previous shortcuts: {}", e);
+    }
+
+    shortcuts
+        .on_shortcut(registration_shortcut.as_str(), |app, _shortcut, event| {
+            if event.state == ShortcutState::Pressed {
+                eprintln!("[XCopy] shortcut pressed, showing window");
+                show_main_window(app, true);
+            }
+        })
+        .map_err(|e| format!("注册快捷键失败：{}", e))
+}
+
 fn setup_tray(app: &tauri::App) -> tauri::Result<()> {
     let show_item = MenuItem::with_id(app, TRAY_SHOW_ID, "显示主界面", true, None::<&str>)?;
     let exit_item = MenuItem::with_id(app, TRAY_EXIT_ID, "退出", true, None::<&str>)?;
@@ -136,26 +196,22 @@ fn setup_tray(app: &tauri::App) -> tauri::Result<()> {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    use tauri_plugin_global_shortcut::{
-        Code, GlobalShortcutExt, Modifiers, Shortcut, ShortcutState,
-    };
-
     tauri::Builder::default()
-        .plugin(
-            tauri_plugin_global_shortcut::Builder::new()
-                .with_handler(|app, _shortcut, event| {
-                    if event.state == ShortcutState::Pressed {
-                        eprintln!("[XCopy] shortcut pressed, showing window");
-                        show_main_window(app, true);
-                    }
-                })
-                .build(),
-        )
+        .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         .setup(|app| {
             let app_data_dir = app
                 .path()
                 .app_data_dir()
                 .expect("Failed to get app data dir");
+            let settings_path = app_settings::settings_path(&app_data_dir);
+            let mut settings = app_settings::load_settings_from_path(&settings_path)
+                .unwrap_or_else(|e| {
+                    eprintln!("[XCopy] failed to load settings, using defaults: {}", e);
+                    app_settings::AppSettings::default()
+                });
+            settings.auto_start =
+                app_settings::is_auto_start_enabled().unwrap_or(settings.auto_start);
+
             let db = Arc::new(Database::new(app_data_dir.clone()).expect("Failed to init DB"));
             let db_clone = db.clone();
             let clipboard_state = Arc::new(clipboard::ClipboardState::default());
@@ -165,6 +221,8 @@ pub fn run() {
                 db,
                 clipboard_state,
                 app_data_dir: app_data_dir.clone(),
+                settings_path,
+                settings: Mutex::new(settings.clone()),
             });
 
             // Start clipboard monitor in background thread
@@ -176,9 +234,7 @@ pub fn run() {
                 app_data_dir,
             );
 
-            // Register global shortcut: Ctrl+Shift+V
-            let shortcut = Shortcut::new(Some(Modifiers::CONTROL | Modifiers::SHIFT), Code::KeyV);
-            app.global_shortcut().register(shortcut)?;
+            register_app_shortcut(app.handle(), &settings.shortcut)?;
             setup_tray(app)?;
 
             Ok(())
@@ -189,6 +245,8 @@ pub fn run() {
             clear_history,
             get_last_entry,
             read_image_file,
+            get_app_settings,
+            save_app_settings,
             hide_main_window,
         ])
         .on_window_event(|window, event| {

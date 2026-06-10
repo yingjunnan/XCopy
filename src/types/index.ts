@@ -15,4 +15,9 @@ export interface ClipboardFilter {
   offset?: number;
 }
 
+export interface AppSettings {
+  autoStart: boolean;
+  shortcut: string;
+}
+
 export type CategoryType = 'all' | 'text' | 'link' | 'image';
