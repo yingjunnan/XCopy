@@ -16,42 +16,48 @@ const categories: { key: CategoryType; label: string; icon: string }[] = [
 
 const CategoryTabs: React.FC<CategoryTabsProps> = ({ current, onChange, counts }) => {
   return (
-    <div className="no-drag flex gap-1 overflow-x-auto px-4 py-2">
-      {categories.map((cat) => (
-        <button
-          key={cat.key}
-          onClick={() => onChange(cat.key)}
-          className={`
-            relative flex items-center gap-1.5 whitespace-nowrap rounded-lg px-2.5 py-1.5
-            text-[12px] font-semibold transition-all duration-200
-            ${
-              current === cat.key
-                ? "bg-white text-[#005aab] shadow-[0_1px_2px_rgba(31,41,55,0.10),0_0_0_1px_rgba(0,103,192,0.18)]"
-                : "text-slate-600 hover:bg-white/[0.62] hover:text-slate-900"
-            }
-          `}
-        >
-          <svg
-            className={`h-3.5 w-3.5 ${current === cat.key ? "text-[#0067c0]" : "text-slate-500"}`}
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
+    <div className="no-drag flex gap-1 overflow-x-auto px-3 py-2">
+      {categories.map((cat) => {
+        const count = counts[cat.key];
+        const isActive = current === cat.key;
+
+        return (
+          <button
+            key={cat.key}
+            onClick={() => onChange(cat.key)}
+            aria-label={`${cat.label}，${count} 条`}
+            className={`
+              relative flex min-w-[76px] items-center justify-center gap-1 whitespace-nowrap rounded-lg px-1.5 py-1.5
+              text-[12px] font-semibold transition-all duration-200
+              ${
+                isActive
+                  ? "bg-white text-[#005aab] shadow-[0_1px_2px_rgba(31,41,55,0.10),0_0_0_1px_rgba(0,103,192,0.18)]"
+                  : "text-slate-600 hover:bg-white/[0.62] hover:text-slate-900"
+              }
+            `}
           >
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d={cat.icon} />
-          </svg>
-          <span>{cat.label}</span>
-          {counts[cat.key] > 0 && (
+            <svg
+              className={`h-3.5 w-3.5 ${isActive ? "text-[#0067c0]" : "text-slate-500"}`}
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d={cat.icon} />
+            </svg>
+            <span>{cat.label}</span>
             <span
+              aria-hidden={count === 0}
               className={`
-                ml-0.5 min-w-[18px] rounded-full px-1.5 py-0.5 text-center text-[10px] leading-none
-                ${current === cat.key ? "bg-[#0067c0]/10 text-[#005aab]" : "bg-slate-900/[0.06] text-slate-500"}
+                min-w-[16px] rounded-full px-1 py-0.5 text-center text-[10px] leading-none
+                ${count === 0 ? "invisible" : ""}
+                ${isActive ? "bg-[#0067c0]/10 text-[#005aab]" : "bg-slate-900/[0.06] text-slate-500"}
               `}
             >
-              {counts[cat.key]}
+              {count}
             </span>
-          )}
-        </button>
-      ))}
+          </button>
+        );
+      })}
     </div>
   );
 };

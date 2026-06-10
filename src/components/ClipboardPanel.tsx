@@ -10,6 +10,7 @@ import type { CategoryType } from "../types";
 const ClipboardPanel: React.FC = () => {
   const {
     entries,
+    allEntries,
     category,
     setCategory,
     query,
@@ -21,12 +22,12 @@ const ClipboardPanel: React.FC = () => {
 
   const counts = useMemo(() => {
     const c: Record<CategoryType, number> = { all: 0, text: 0, link: 0, image: 0 };
-    entries.forEach((e) => {
+    allEntries.forEach((e) => {
       c.all++;
       c[e.contentType]++;
     });
     return c;
-  }, [entries]);
+  }, [allEntries]);
 
   const activeCount = category === "all" ? counts.all : counts[category];
 
@@ -40,7 +41,7 @@ const ClipboardPanel: React.FC = () => {
       {/* Category tabs + clear */}
       <div className="flex items-center justify-between pr-3">
         <CategoryTabs current={category} onChange={setCategory} counts={counts} />
-        {entries.length > 0 && (
+        {allEntries.length > 0 && (
           <button
             onClick={clearAll}
             className="

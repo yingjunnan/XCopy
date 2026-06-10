@@ -1,7 +1,19 @@
 import React from "react";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import ClipboardPanel from "./components/ClipboardPanel";
 
+const isTauriRuntime = () => typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
+
 const App: React.FC = () => {
+  const handleClose = async () => {
+    if (isTauriRuntime()) {
+      await getCurrentWindow().close();
+      return;
+    }
+
+    window.close();
+  };
+
   return (
     <div
       className="
@@ -38,7 +50,25 @@ const App: React.FC = () => {
         >
           剪贴板历史
         </span>
-        <div className="h-6 w-[60px]" />
+        <div className="flex h-7 w-[60px] items-center justify-end">
+          <button
+            data-tauri-drag-region={false}
+            type="button"
+            onClick={handleClose}
+            title="关闭"
+            aria-label="关闭窗口"
+            className="
+              no-drag flex h-7 w-7 items-center justify-center rounded-lg
+              text-slate-500 transition-all duration-150
+              hover:bg-[#c42b1c]/10 hover:text-[#c42b1c]
+              active:scale-95
+            "
+          >
+            <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
       </div>
 
       {/* Main content */}

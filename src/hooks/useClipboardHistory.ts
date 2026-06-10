@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
@@ -40,7 +40,7 @@ const previewEntries: ClipboardEntry[] = [
 ];
 
 export function useClipboardHistory() {
-  const [entries, setEntries] = useState<ClipboardEntry[]>([]);
+  const [allEntries, setAllEntries] = useState<ClipboardEntry[]>([]);
   const [category, setCategory] = useState<CategoryType>("all");
   const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(true);
@@ -49,24 +49,25 @@ export function useClipboardHistory() {
     if (!isTauriRuntime()) {
       const normalizedQuery = filter.query?.trim().toLowerCase();
       const nextEntries = previewEntries.filter((entry) => {
-        const matchesType = !filter.contentType || entry.contentType === filter.contentType;
         const matchesQuery =
           !normalizedQuery ||
           entry.preview.toLowerCase().includes(normalizedQuery) ||
           entry.sourceApp.toLowerCase().includes(normalizedQuery);
 
-        return matchesType && matchesQuery;
+        return matchesQuery;
       });
 
-      setEntries(nextEntries);
+      setAllEntries(nextEntries);
       setLoading(false);
       return;
     }
 
     try {
       if (showLoading) setLoading(true);
-      const result = await invoke<ClipboardEntry[]>("get_history", { filter });
-      setEntries(result);
+      const result = await invoke<ClipboardEntry[]>("get_history", {
+        filter: { ...filter, contentType: undefined },
+      });
+      setAllEntries(result);
     } catch (err) {
       console.error("Failed to fetch history:", err);
     } finally {
@@ -77,11 +78,18 @@ export function useClipboardHistory() {
   const buildFilter = useCallback(
     (): ClipboardFilter => ({
       query: query || undefined,
-      contentType: category === "all" ? undefined : category,
       limit: 200,
       offset: 0,
     }),
-    [query, category]
+    [query]
+  );
+
+  const entries = useMemo(
+    () =>
+      category === "all"
+        ? allEntries
+        : allEntries.filter((entry) => entry.contentType === category),
+    [allEntries, category]
   );
 
   const refresh = useCallback(
@@ -159,18 +167,28 @@ export function useClipboardHistory() {
   }, [refresh]);
 
   const deleteEntry = useCallback(async (id: string) => {
+    if (!isTauriRuntime()) {
+      setAllEntries((prev) => prev.filter((e) => e.id !== id));
+      return;
+    }
+
     try {
       await invoke("delete_entry", { id });
-      setEntries((prev) => prev.filter((e) => e.id !== id));
+      setAllEntries((prev) => prev.filter((e) => e.id !== id));
     } catch (err) {
       console.error("Failed to delete entry:", err);
     }
   }, []);
 
   const clearAll = useCallback(async () => {
+    if (!isTauriRuntime()) {
+      setAllEntries([]);
+      return;
+    }
+
     try {
       await invoke("clear_history");
-      setEntries([]);
+      setAllEntries([]);
     } catch (err) {
       console.error("Failed to clear history:", err);
     }
@@ -178,6 +196,7 @@ export function useClipboardHistory() {
 
   return {
     entries,
+    allEntries,
     category,
     setCategory,
     query,
