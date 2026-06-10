@@ -28,23 +28,24 @@ const ClipboardPanel: React.FC = () => {
     return c;
   }, [entries]);
 
+  const activeCount = category === "all" ? counts.all : counts[category];
+
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex h-full flex-col">
       {/* Search */}
-      <div className="pt-2 pb-1">
+      <div className="pb-1 pt-3">
         <SearchBar value={query} onChange={setQuery} />
       </div>
 
       {/* Category tabs + clear */}
-      <div className="flex items-center justify-between pr-2">
+      <div className="flex items-center justify-between pr-3">
         <CategoryTabs current={category} onChange={setCategory} counts={counts} />
         {entries.length > 0 && (
           <button
             onClick={clearAll}
             className="
-              flex-shrink-0 mr-1 px-2 py-1 rounded-lg text-[10px] text-white/20
-              hover:text-red-400 hover:bg-red-500/5 transition-all duration-200
-              no-drag
+              no-drag mr-1 flex-shrink-0 rounded-lg px-2.5 py-1.5 text-[11px] font-semibold
+              text-slate-500 transition-all duration-200 hover:bg-[#c42b1c]/10 hover:text-[#c42b1c]
             "
           >
             清空
@@ -53,27 +54,27 @@ const ClipboardPanel: React.FC = () => {
       </div>
 
       {/* Content */}
-      <div className="flex-1 overflow-hidden mt-1">
+      <div className="mt-1 flex-1 overflow-hidden">
         {/* Status bar */}
-        <div className="px-3 pb-1 flex items-center justify-between">
-          <span className="text-[10px] text-white/15">
-            {loading ? "加载中..." : `${counts.all} 条记录`}
+        <div className="flex items-center justify-between px-4 pb-1.5">
+          <span className="text-[11px] font-medium text-slate-500">
+            {loading ? "正在同步..." : `${activeCount} 条记录`}
           </span>
           {query && (
-            <span className="text-[10px] text-white/25">
+            <span className="max-w-[190px] truncate rounded-md bg-white/[0.55] px-2 py-0.5 text-[11px] font-medium text-slate-500">
               搜索 "{query}"
             </span>
           )}
         </div>
 
         {/* List */}
-        <div className="overflow-y-auto h-full pb-4 px-1 scroll-smooth">
+        <div className="h-full overflow-y-auto px-2 pb-4 scroll-smooth">
           {loading ? (
             <div className="space-y-2 px-2">
               {Array.from({ length: 5 }).map((_, i) => (
                 <div
                   key={i}
-                  className="h-16 rounded-xl bg-white/[0.02] animate-pulse"
+                  className="h-16 animate-pulse rounded-xl border border-slate-900/[0.06] bg-white/[0.58]"
                   style={{ animationDelay: `${i * 50}ms` }}
                 />
               ))}

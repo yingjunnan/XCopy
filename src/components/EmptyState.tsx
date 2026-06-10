@@ -2,11 +2,11 @@ import React from "react";
 
 const EmptyState: React.FC = () => {
   return (
-    <div className="flex flex-col items-center justify-center h-full gap-4 text-center px-8">
+    <div className="flex h-full flex-col items-center justify-center gap-4 px-8 text-center">
       <div className="relative">
-        <div className="w-20 h-20 rounded-2xl bg-white/[0.03] border border-white/[0.06] flex items-center justify-center">
+        <div className="flex h-20 w-20 items-center justify-center rounded-2xl border border-slate-900/[0.08] bg-white/[0.68] shadow-[0_12px_30px_rgba(31,41,55,0.10),0_1px_0_rgba(255,255,255,0.9)_inset] backdrop-blur-xl">
           <svg
-            className="w-8 h-8 text-white/15"
+            className="h-8 w-8 text-[#0067c0]/65"
             fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24"
@@ -19,11 +19,11 @@ const EmptyState: React.FC = () => {
             />
           </svg>
         </div>
-        <div className="absolute -top-1 -right-1 w-4 h-4 rounded-full border-2 border-[#12121f] bg-amber-500/80" />
+        <div className="absolute -right-1 -top-1 h-4 w-4 rounded-full border-2 border-white bg-[#f9a825]" />
       </div>
       <div>
-        <p className="text-sm text-white/40 font-medium mb-1">剪贴板为空</p>
-        <p className="text-xs text-white/20 leading-relaxed">
+        <p className="mb-1 text-sm font-semibold text-slate-700">剪贴板为空</p>
+        <p className="text-xs leading-relaxed text-slate-500">
           使用 Ctrl+C 复制内容，然后按 Ctrl+Shift+V 查看
         </p>
       </div>

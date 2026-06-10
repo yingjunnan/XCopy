@@ -10,6 +10,35 @@ declare global {
   }
 }
 
+const isTauriRuntime = () => typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
+
+const previewEntries: ClipboardEntry[] = [
+  {
+    id: "preview-text",
+    contentType: "text",
+    content: "Windows 亚克力风格预览内容",
+    sourceApp: "Notepad",
+    preview: "Windows 亚克力风格预览内容，列表项会以浅色玻璃层展示，并保留清晰的文字层级。",
+    createdAt: new Date(Date.now() - 4 * 60 * 1000).toISOString(),
+  },
+  {
+    id: "preview-link",
+    contentType: "link",
+    content: "https://learn.microsoft.com/windows/apps/design/signature-experiences/materials",
+    sourceApp: "Microsoft Edge",
+    preview: "https://learn.microsoft.com/windows/apps/design/signature-experiences/materials",
+    createdAt: new Date(Date.now() - 38 * 60 * 1000).toISOString(),
+  },
+  {
+    id: "preview-note",
+    contentType: "text",
+    content: "Ctrl+Shift+V 打开 XCopy",
+    sourceApp: "XCopy",
+    preview: "Ctrl+Shift+V 打开 XCopy，搜索、分类和清空操作都保持轻量桌面浮窗体验。",
+    createdAt: new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString(),
+  },
+];
+
 export function useClipboardHistory() {
   const [entries, setEntries] = useState<ClipboardEntry[]>([]);
   const [category, setCategory] = useState<CategoryType>("all");
@@ -17,6 +46,23 @@ export function useClipboardHistory() {
   const [loading, setLoading] = useState(true);
 
   const fetchHistory = useCallback(async (filter: ClipboardFilter, showLoading = true) => {
+    if (!isTauriRuntime()) {
+      const normalizedQuery = filter.query?.trim().toLowerCase();
+      const nextEntries = previewEntries.filter((entry) => {
+        const matchesType = !filter.contentType || entry.contentType === filter.contentType;
+        const matchesQuery =
+          !normalizedQuery ||
+          entry.preview.toLowerCase().includes(normalizedQuery) ||
+          entry.sourceApp.toLowerCase().includes(normalizedQuery);
+
+        return matchesType && matchesQuery;
+      });
+
+      setEntries(nextEntries);
+      setLoading(false);
+      return;
+    }
+
     try {
       if (showLoading) setLoading(true);
       const result = await invoke<ClipboardEntry[]>("get_history", { filter });
@@ -53,6 +99,10 @@ export function useClipboardHistory() {
   // Shortcut opens can happen before the clipboard polling thread has written
   // the new item, so refresh once immediately and once after the next poll.
   useEffect(() => {
+    if (!isTauriRuntime()) {
+      return;
+    }
+
     const pendingTimers = new Set<number>();
 
     const refetch = () => {

@@ -4,25 +4,25 @@ export default {
   theme: {
     extend: {
       fontFamily: {
-        sans: ['"SF Pro Display"', '"Segoe UI"', 'system-ui', 'sans-serif'],
+        sans: ['"Segoe UI Variable Display"', '"Segoe UI Variable Text"', '"Segoe UI"', 'system-ui', 'sans-serif'],
         mono: ['"JetBrains Mono"', '"Fira Code"', 'monospace'],
       },
       colors: {
         surface: {
-          50: '#f8f9fa',
-          100: '#f1f3f5',
-          200: '#e9ecef',
-          700: '#2d2d3f',
-          750: '#242436',
-          800: '#1e1e2e',
-          850: '#1a1a2a',
-          900: '#151525',
-          950: '#101020',
+          50: '#ffffff',
+          100: '#f7f9fc',
+          200: '#eef3f8',
+          700: '#5d6675',
+          750: '#485364',
+          800: '#374151',
+          850: '#2b3340',
+          900: '#20232a',
+          950: '#111827',
         },
         accent: {
-          400: '#7c8aff',
-          500: '#6c7aff',
-          600: '#5a68e0',
+          400: '#54b1f3',
+          500: '#0078d4',
+          600: '#0067c0',
         },
       },
       animation: {
