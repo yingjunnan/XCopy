@@ -5,15 +5,20 @@ mod window_tracker;
 
 use db::Database;
 use models::{ClipboardEntry, ClipboardFilter};
+use std::path::PathBuf;
 use std::sync::Arc;
 use tauri::{Emitter, Manager};
 
 struct AppState {
     db: Arc<Database>,
+    app_data_dir: PathBuf,
 }
 
 #[tauri::command]
-fn get_history(state: tauri::State<AppState>, filter: ClipboardFilter) -> Result<Vec<ClipboardEntry>, String> {
+fn get_history(
+    state: tauri::State<AppState>,
+    filter: ClipboardFilter,
+) -> Result<Vec<ClipboardEntry>, String> {
     state.db.query_entries(&filter)
 }
 
@@ -37,14 +42,21 @@ fn get_last_entry(state: tauri::State<AppState>) -> Result<Option<ClipboardEntry
 
 #[tauri::command]
 fn read_image_file(path: String) -> Result<String, String> {
-    use base64::{Engine as _, engine::general_purpose::STANDARD as BASE64};
+    use base64::{engine::general_purpose::STANDARD as BASE64, Engine as _};
     let bytes = std::fs::read(&path).map_err(|e| e.to_string())?;
     Ok(BASE64.encode(&bytes))
 }
 
+fn request_history_refresh(window: &tauri::WebviewWindow) {
+    let _ = window.emit("window-shown", ());
+    let _ = window.eval("window.__XCOPY_REFRESH_HISTORY?.();");
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Modifiers, Shortcut, ShortcutState};
+    use tauri_plugin_global_shortcut::{
+        Code, GlobalShortcutExt, Modifiers, Shortcut, ShortcutState,
+    };
 
     tauri::Builder::default()
         .plugin(
@@ -53,12 +65,31 @@ pub fn run() {
                     if event.state == ShortcutState::Pressed {
                         eprintln!("[XCopy] shortcut pressed, showing window");
                         if let Some(window) = app.get_webview_window("main") {
+                            let state = app.state::<AppState>();
+                            match clipboard::capture_current_clipboard(
+                                state.db.as_ref(),
+                                &state.app_data_dir,
+                            ) {
+                                Ok(Some(entry)) => {
+                                    eprintln!(
+                                        "[XCopy] shortcut captured {}, refreshing window",
+                                        entry.content_type
+                                    );
+                                    let _ = window.emit("clipboard-update", &entry);
+                                }
+                                Ok(None) => {
+                                    eprintln!("[XCopy] shortcut found no new clipboard entry");
+                                }
+                                Err(e) => {
+                                    eprintln!("[XCopy] shortcut clipboard capture failed: {}", e);
+                                }
+                            }
+
                             let _ = window.set_skip_taskbar(false);
                             let _ = window.show();
                             let _ = window.set_focus();
-                            // Notify frontend to refresh data
-                            let _ = app.emit("window-shown", ());
-                            eprintln!("[XCopy] window-shown event emitted");
+                            request_history_refresh(&window);
+                            eprintln!("[XCopy] window shown and refresh requested");
                         } else {
                             eprintln!("[XCopy] ERROR: main window not found");
                         }
@@ -67,11 +98,17 @@ pub fn run() {
                 .build(),
         )
         .setup(|app| {
-            let app_data_dir = app.path().app_data_dir().expect("Failed to get app data dir");
+            let app_data_dir = app
+                .path()
+                .app_data_dir()
+                .expect("Failed to get app data dir");
             let db = Arc::new(Database::new(app_data_dir.clone()).expect("Failed to init DB"));
             let db_clone = db.clone();
 
-            app.manage(AppState { db });
+            app.manage(AppState {
+                db,
+                app_data_dir: app_data_dir.clone(),
+            });
 
             // Start clipboard monitor in background thread
             let handle = app.handle().clone();

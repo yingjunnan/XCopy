@@ -1,7 +1,7 @@
 use arboard::Clipboard;
 use chrono::Utc;
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::time::Duration;
 use tauri::{AppHandle, Emitter};
 use uuid::Uuid;
@@ -37,82 +37,94 @@ pub fn start_clipboard_monitor(
 ) {
     std::thread::spawn(move || {
         let mut clipboard = Clipboard::new().expect("Failed to create clipboard");
-        let mut last_text = String::new();
-        let mut last_image_hash: u64 = 0;
-        let images_dir = app_data_dir.join("images");
-        fs::create_dir_all(&images_dir).ok();
 
         loop {
             std::thread::sleep(Duration::from_millis(500));
 
-            let source_app = win::get_active_window_title();
-            let now = Utc::now().to_rfc3339();
-
-            // Try image first
-            if let Ok(image_data) = clipboard.get_image() {
-                let img = image_data.to_owned();
-                let hash = (img.width as u64) ^ ((img.height as u64) << 32);
-                if hash != last_image_hash && img.width > 0 {
-                    last_image_hash = hash;
-
-                    let id = Uuid::new_v4().to_string();
-                    let filename = format!("{}.png", id);
-                    let filepath = images_dir.join(&filename);
-
-                    let png_bytes = bgra_to_png(&img.bytes, img.width as usize, img.height as usize);
-                    if let Ok(bytes) = png_bytes {
-                        if fs::write(&filepath, &bytes).is_ok() {
-                            let entry = ClipboardEntry {
-                                id: id.clone(),
-                                content_type: "image".to_string(),
-                                content: format!("Image {}x{}", img.width, img.height),
-                                source_app,
-                                preview: format!("{}x{}px 图片", img.width, img.height),
-                                created_at: now,
-                                image_path: Some(filepath.to_string_lossy().to_string()),
-                            };
-
-                            if let Err(e) = db.insert_entry(&entry) {
-                                eprintln!("DB insert error: {}", e);
-                            } else {
-                                eprintln!("[XCopy] inserted image, emitting clipboard-update");
-                                let _ = app_handle.emit("clipboard-update", &entry);
-                            }
-                        }
-                    }
-                    last_text.clear();
+            match capture_from_clipboard(&mut clipboard, db.as_ref(), &app_data_dir) {
+                Ok(Some(entry)) => {
+                    eprintln!(
+                        "[XCopy] inserted {}, emitting clipboard-update",
+                        entry.content_type
+                    );
+                    let _ = app_handle.emit("clipboard-update", &entry);
                 }
-                continue;
-            }
-
-            // Try text
-            if let Ok(text) = clipboard.get_text() {
-                if text != last_text && !text.trim().is_empty() {
-                    let content_type = detect_content_type(&text).to_string();
-                    let preview = truncate_preview(&text, 100);
-                    let entry = ClipboardEntry {
-                        id: Uuid::new_v4().to_string(),
-                        content_type,
-                        content: text.clone(),
-                        source_app,
-                        preview,
-                        created_at: now,
-                        image_path: None,
-                    };
-
-                    if let Err(e) = db.insert_entry(&entry) {
-                        eprintln!("DB insert error: {}", e);
-                    } else {
-                        eprintln!("[XCopy] inserted text, emitting clipboard-update");
-                        let _ = app_handle.emit("clipboard-update", &entry);
-                    }
-
-                    last_text = text;
-                    last_image_hash = 0;
-                }
+                Ok(None) => {}
+                Err(e) => eprintln!("[XCopy] clipboard monitor error: {}", e),
             }
         }
     });
+}
+
+pub fn capture_current_clipboard(
+    db: &Database,
+    app_data_dir: &Path,
+) -> Result<Option<ClipboardEntry>, String> {
+    let mut clipboard = Clipboard::new().map_err(|e| e.to_string())?;
+    capture_from_clipboard(&mut clipboard, db, app_data_dir)
+}
+
+fn capture_from_clipboard(
+    clipboard: &mut Clipboard,
+    db: &Database,
+    app_data_dir: &Path,
+) -> Result<Option<ClipboardEntry>, String> {
+    let source_app = win::get_active_window_title();
+    let now = Utc::now().to_rfc3339();
+
+    if let Ok(image_data) = clipboard.get_image() {
+        let img = image_data.to_owned();
+        if img.width == 0 {
+            return Ok(None);
+        }
+
+        let images_dir = app_data_dir.join("images");
+        fs::create_dir_all(&images_dir).map_err(|e| e.to_string())?;
+
+        let id = Uuid::new_v4().to_string();
+        let filepath = images_dir.join(format!("{}.png", id));
+        let png_bytes = bgra_to_png(&img.bytes, img.width as usize, img.height as usize)?;
+        fs::write(&filepath, &png_bytes).map_err(|e| e.to_string())?;
+
+        let entry = ClipboardEntry {
+            id,
+            content_type: "image".to_string(),
+            content: format!("Image {}x{}", img.width, img.height),
+            source_app,
+            preview: format!("{}x{}px image", img.width, img.height),
+            created_at: now,
+            image_path: Some(filepath.to_string_lossy().to_string()),
+        };
+
+        if db.insert_entry_if_changed(&entry)? {
+            return Ok(Some(entry));
+        }
+
+        let _ = fs::remove_file(filepath);
+        return Ok(None);
+    }
+
+    if let Ok(text) = clipboard.get_text() {
+        if text.trim().is_empty() {
+            return Ok(None);
+        }
+
+        let entry = ClipboardEntry {
+            id: Uuid::new_v4().to_string(),
+            content_type: detect_content_type(&text).to_string(),
+            content: text.clone(),
+            source_app,
+            preview: truncate_preview(&text, 100),
+            created_at: now,
+            image_path: None,
+        };
+
+        if db.insert_entry_if_changed(&entry)? {
+            return Ok(Some(entry));
+        }
+    }
+
+    Ok(None)
 }
 
 /// Simple BGRA to PNG conversion using a minimal encoder

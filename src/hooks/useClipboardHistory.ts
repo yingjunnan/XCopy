@@ -4,68 +4,109 @@ import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import type { ClipboardEntry, ClipboardFilter, CategoryType } from "../types";
 
+declare global {
+  interface Window {
+    __XCOPY_REFRESH_HISTORY?: () => void;
+  }
+}
+
 export function useClipboardHistory() {
   const [entries, setEntries] = useState<ClipboardEntry[]>([]);
   const [category, setCategory] = useState<CategoryType>("all");
   const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(true);
 
-  const fetchHistory = useCallback(async (filter: ClipboardFilter) => {
+  const fetchHistory = useCallback(async (filter: ClipboardFilter, showLoading = true) => {
     try {
-      setLoading(true);
+      if (showLoading) setLoading(true);
       const result = await invoke<ClipboardEntry[]>("get_history", { filter });
       setEntries(result);
     } catch (err) {
       console.error("Failed to fetch history:", err);
     } finally {
-      setLoading(false);
+      if (showLoading) setLoading(false);
     }
   }, []);
 
-  const refresh = useCallback(() => {
-    fetchHistory({
+  const buildFilter = useCallback(
+    (): ClipboardFilter => ({
       query: query || undefined,
       contentType: category === "all" ? undefined : category,
       limit: 200,
       offset: 0,
-    });
-  }, [query, category, fetchHistory]);
+    }),
+    [query, category]
+  );
 
-  // Initial load + re-fetch on filter change
+  const refresh = useCallback(
+    (showLoading = true) => {
+      fetchHistory(buildFilter(), showLoading);
+    },
+    [buildFilter, fetchHistory]
+  );
+
+  // Initial load + re-fetch on filter change.
   useEffect(() => {
     refresh();
   }, [refresh]);
 
-  // Listen for real-time clipboard updates AND window focus — both re-fetch from DB
+  // Shortcut opens can happen before the clipboard polling thread has written
+  // the new item, so refresh once immediately and once after the next poll.
   useEffect(() => {
+    const pendingTimers = new Set<number>();
+
     const refetch = () => {
-      invoke<ClipboardEntry[]>("get_history", {
-        filter: {
-          query: query || undefined,
-          contentType: category === "all" ? undefined : category,
-          limit: 200,
-          offset: 0,
-        },
-      })
-        .then((result) => setEntries(result))
-        .catch((err) => console.error("Refetch failed:", err));
+      refresh(false);
     };
 
-    const unlisten1 = listen<any>("clipboard-update", () => {
+    const refetchAfterClipboardPoll = () => {
+      refetch();
+      const timer = window.setTimeout(() => {
+        pendingTimers.delete(timer);
+        refetch();
+      }, 650);
+      pendingTimers.add(timer);
+    };
+
+    const previousRefreshHandler = window.__XCOPY_REFRESH_HISTORY;
+    window.__XCOPY_REFRESH_HISTORY = refetchAfterClipboardPoll;
+
+    const win = getCurrentWindow();
+    let checkingVisibility = false;
+    const visibilityPoll = window.setInterval(async () => {
+      if (checkingVisibility) return;
+
+      checkingVisibility = true;
+      try {
+        if (await win.isVisible()) refetch();
+      } catch (err) {
+        console.error("Visibility refresh failed:", err);
+      } finally {
+        checkingVisibility = false;
+      }
+    }, 1000);
+
+    const unlistenClipboardUpdate = listen("clipboard-update", () => {
       refetch();
     });
 
-    // Re-fetch when window regains focus (reopened via shortcut)
-    const win = getCurrentWindow();
-    const unlisten2 = win.onFocusChanged(({ payload: focused }) => {
-      if (focused) refetch();
+    const unlistenWindowShown = listen("window-shown", () => {
+      refetchAfterClipboardPoll();
+    });
+
+    const unlistenFocusChanged = win.onFocusChanged(({ payload: focused }) => {
+      if (focused) refetchAfterClipboardPoll();
     });
 
     return () => {
-      unlisten1.then((fn) => fn());
-      unlisten2.then((fn) => fn());
+      window.__XCOPY_REFRESH_HISTORY = previousRefreshHandler;
+      window.clearInterval(visibilityPoll);
+      pendingTimers.forEach((timer) => window.clearTimeout(timer));
+      unlistenClipboardUpdate.then((fn) => fn());
+      unlistenWindowShown.then((fn) => fn());
+      unlistenFocusChanged.then((fn) => fn());
     };
-  }, [query, category]);
+  }, [refresh]);
 
   const deleteEntry = useCallback(async (id: string) => {
     try {
