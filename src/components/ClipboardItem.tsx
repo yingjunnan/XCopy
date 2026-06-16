@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { emit } from "@tauri-apps/api/event";
+import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
 import type { ClipboardEntry } from "../types";
 
 interface ClipboardItemProps {
@@ -28,6 +30,40 @@ const ClipboardItem: React.FC<ClipboardItemProps> = ({ entry, onDelete }) => {
       setTimeout(() => setCopied(false), 1500);
     } catch {
       // Fallback for some environments
+    }
+  };
+
+  const handlePreviewImage = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!entry.imagePath) return;
+
+    // Pass the image path to the preview window via the URL hash (encoded),
+    // so the preview page can read it standalone — no shared state needed.
+    const encoded = encodeURIComponent(entry.imagePath);
+    const url = `preview.html#${encoded}`;
+
+    try {
+      const existing = await WebviewWindow.getByLabel("image-preview");
+      if (existing) {
+        // Re-use the open preview window: focus it and tell it to load the new image.
+        await existing.setFocus();
+        await emit("preview-open-image", { path: entry.imagePath });
+        return;
+      }
+
+      new WebviewWindow("image-preview", {
+        url,
+        title: "图片预览",
+        width: 840,
+        height: 620,
+        minWidth: 360,
+        minHeight: 280,
+        resizable: true,
+        decorations: true,
+        center: true,
+      });
+    } catch (err) {
+      console.error("Failed to open preview window:", err);
     }
   };
 
@@ -101,6 +137,25 @@ const ClipboardItem: React.FC<ClipboardItemProps> = ({ entry, onDelete }) => {
             <span className="absolute bottom-2 left-2 max-w-[calc(100%-16px)] truncate text-[10px] font-medium text-white">
               {entry.preview}
             </span>
+
+            {/* View large image — bottom-right */}
+            <button
+              onClick={handlePreviewImage}
+              title="查看大图"
+              aria-label="在新窗口查看大图"
+              className={`
+                no-drag absolute bottom-1.5 right-1.5 flex items-center gap-1 rounded-md
+                bg-slate-950/55 px-1.5 py-1 text-[10px] font-semibold text-white backdrop-blur-sm
+                transition-all duration-150 hover:bg-[#0067c0]/80 active:scale-95
+                ${hover ? "translate-y-0 opacity-100" : "pointer-events-none translate-y-1 opacity-0"}
+              `}
+            >
+              <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-4.35-4.35M11 8a3 3 0 11-6 0 3 3 0 016 0z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h4M3 3v4M21 3h-4M21 3v4M3 21h4M3 21v-4M21 21h-4M21 21v-4" />
+              </svg>
+              查看大图
+            </button>
           </div>
         ) : (
           <p className="line-clamp-3 break-all text-[13px] leading-relaxed text-slate-800">

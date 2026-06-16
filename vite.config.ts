@@ -1,5 +1,6 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
+import { resolve } from "path";
 
 const host = process.env.TAURI_DEV_HOST;
 
@@ -15,4 +16,15 @@ export default defineConfig(async () => ({
       : undefined,
     watch: { ignored: ["**/src-tauri/**"] },
   },
+  // Multiple HTML entry points: the main clipboard popup and the image preview
+  // window. Tauri serves these from the frontend dist root at runtime.
+  build: {
+    rollupOptions: {
+      input: {
+        main: resolve(__dirname, "index.html"),
+        preview: resolve(__dirname, "preview.html"),
+      },
+    },
+  },
 }));
+

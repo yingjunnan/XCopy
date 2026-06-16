@@ -261,8 +261,12 @@ pub fn run() {
             hide_main_window,
         ])
         .on_window_event(|window, event| {
+            // The main popup hides shortly after losing focus (its normal UX).
+            // Other windows (e.g. the image preview) are left alone.
             if let tauri::WindowEvent::Focused(false) = event {
-                // Delay hiding to avoid conflict with drag start
+                if window.label() != "main" {
+                    return;
+                }
                 let label = window.label().to_string();
                 let handle = window.app_handle().clone();
                 std::thread::spawn(move || {
