@@ -22,4 +22,9 @@ export interface AppSettings {
   retentionDays: number;
 }
 
+export interface StorageUsage {
+  databaseBytes: number;
+  imagesBytes: number;
+}
+
 export type CategoryType = 'all' | 'text' | 'link' | 'image';

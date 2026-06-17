@@ -7,7 +7,8 @@ mod window_tracker;
 use db::Database;
 use db::RetentionPolicy;
 use models::{ClipboardEntry, ClipboardFilter};
-use std::path::PathBuf;
+use serde::Serialize;
+use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use tauri::{
     menu::{Menu, MenuItem, PredefinedMenuItem},
@@ -24,6 +25,13 @@ struct AppState {
     app_data_dir: PathBuf,
     settings_path: PathBuf,
     settings: Mutex<app_settings::AppSettings>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct StorageUsage {
+    pub database_bytes: u64,
+    pub images_bytes: u64,
 }
 
 #[tauri::command]
@@ -60,6 +68,52 @@ fn read_image_file(path: String) -> Result<String, String> {
     use base64::{engine::general_purpose::STANDARD as BASE64, Engine as _};
     let bytes = std::fs::read(&path).map_err(|e| e.to_string())?;
     Ok(BASE64.encode(&bytes))
+}
+
+#[tauri::command]
+fn get_storage_usage(state: tauri::State<AppState>) -> Result<StorageUsage, String> {
+    let app_data_dir = &state.app_data_dir;
+
+    // Database files: xcopy.db plus the WAL (-wal) and shared-memory (-shm) sidecars.
+    let database_bytes = ["xcopy.db", "xcopy.db-wal", "xcopy.db-shm"]
+        .iter()
+        .map(|name| file_size(app_data_dir.join(name)))
+        .sum();
+
+    // Images directory: sum of every file under app_data_dir/images.
+    let images_bytes = dir_size(&app_data_dir.join("images"));
+
+    Ok(StorageUsage {
+        database_bytes,
+        images_bytes,
+    })
+}
+
+fn file_size(path: PathBuf) -> u64 {
+    std::fs::metadata(&path).map(|m| m.len()).unwrap_or(0)
+}
+
+fn dir_size(path: &Path) -> u64 {
+    fn walk(dir: &Path) -> u64 {
+        let mut total = 0;
+        let entries = match std::fs::read_dir(dir) {
+            Ok(e) => e,
+            Err(_) => return 0,
+        };
+        for entry in entries.flatten() {
+            let file_type = match entry.file_type() {
+                Ok(t) => t,
+                Err(_) => continue,
+            };
+            if file_type.is_dir() {
+                total += walk(&entry.path());
+            } else if file_type.is_file() {
+                total += entry.metadata().map(|m| m.len()).unwrap_or(0);
+            }
+        }
+        total
+    }
+    walk(path)
 }
 
 #[tauri::command]
@@ -259,6 +313,7 @@ pub fn run() {
             get_app_settings,
             save_app_settings,
             hide_main_window,
+            get_storage_usage,
         ])
         .on_window_event(|window, event| {
             // The main popup hides shortly after losing focus (its normal UX).

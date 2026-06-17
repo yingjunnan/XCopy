@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import type { AppSettings } from "../types";
+import type { AppSettings, StorageUsage } from "../types";
 
 const DEFAULT_SETTINGS: AppSettings = {
   autoStart: false,
@@ -64,6 +64,18 @@ function clampNumber(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, Math.round(value)));
 }
 
+function formatBytes(bytes: number) {
+  if (!Number.isFinite(bytes) || bytes <= 0) return "0 B";
+  const units = ["B", "KB", "MB", "GB", "TB"];
+  const exponent = Math.min(
+    units.length - 1,
+    Math.floor(Math.log(bytes) / Math.log(1024))
+  );
+  const value = bytes / Math.pow(1024, exponent);
+  const rounded = exponent === 0 ? value.toFixed(0) : value.toFixed(1);
+  return `${rounded} ${units[exponent]}`;
+}
+
 const SettingsPanel: React.FC = () => {
   const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS);
   const [savedSettings, setSavedSettings] = useState<AppSettings>(DEFAULT_SETTINGS);
@@ -72,6 +84,18 @@ const SettingsPanel: React.FC = () => {
   const [recording, setRecording] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const [storage, setStorage] = useState<StorageUsage | null>(null);
+
+  const loadStorageUsage = useCallback(async () => {
+    if (!isTauriRuntime()) return;
+    try {
+      const usage = await invoke<StorageUsage>("get_storage_usage");
+      setStorage(usage);
+    } catch (err) {
+      // Storage usage is informational; never surface as a hard error.
+      console.warn("读取存储占用失败", String(err));
+    }
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -95,10 +119,11 @@ const SettingsPanel: React.FC = () => {
     }
 
     loadSettings();
+    loadStorageUsage();
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [loadStorageUsage]);
 
   const changed = useMemo(
     () =>
@@ -161,12 +186,14 @@ const SettingsPanel: React.FC = () => {
       setSettings(saved);
       setSavedSettings(saved);
       setMessage("已保存");
+      // Retention changes may prune images/rows, refresh the storage display.
+      loadStorageUsage();
     } catch (err) {
       setError(String(err));
     } finally {
       setSaving(false);
     }
-  }, [settings]);
+  }, [settings, loadStorageUsage]);
 
   const handleShortcutKeyDown = useCallback(
     (event: React.KeyboardEvent<HTMLButtonElement>) => {
@@ -336,6 +363,25 @@ const SettingsPanel: React.FC = () => {
               </label>
             </div>
           </section>
+
+          <section className="rounded-xl border border-slate-900/[0.08] bg-white p-4 shadow-[0_1px_2px_rgba(31,41,55,0.05)]">
+            <div className="mb-3">
+              <h2 className="text-[13px] font-semibold text-slate-900">存储占用</h2>
+              <p className="mt-1 text-[11px] leading-4 text-slate-500">
+                数据库与图片分别占用的磁盘空间。
+              </p>
+            </div>
+            <StorageRow
+              label="数据库"
+              value={storage?.databaseBytes}
+            />
+            <div className="my-2 h-px bg-slate-900/[0.06]" />
+            <StorageRow
+              label="图片"
+              value={storage?.imagesBytes}
+              isLast
+            />
+          </section>
         </div>
       </div>
 
@@ -364,6 +410,26 @@ const SettingsPanel: React.FC = () => {
           {saving ? "保存中..." : changed ? "保存设置" : "无需保存"}
         </button>
       </div>
+    </div>
+  );
+};
+
+const StorageRow: React.FC<{
+  label: string;
+  value: number | undefined;
+  isLast?: boolean;
+}> = ({ label, value, isLast }) => {
+  const loading = value === undefined;
+  return (
+    <div className={`flex items-center justify-between gap-3 ${isLast ? "" : ""}`}>
+      <span className="text-[12px] font-medium text-slate-600">{label}</span>
+      <span
+        className={`text-[12px] font-semibold tabular-nums ${
+          loading ? "text-slate-400" : "text-slate-900"
+        }`}
+      >
+        {loading ? "计算中…" : formatBytes(value)}
+      </span>
     </div>
   );
 };
