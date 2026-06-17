@@ -195,7 +195,7 @@ fn capture_from_clipboard(
 
         let id = Uuid::new_v4().to_string();
         let filepath = images_dir.join(format!("{}.png", id));
-        let png_bytes = bgra_to_png(&img.bytes, img.width as usize, img.height as usize)?;
+        let png_bytes = rgba_to_png(&img.bytes, img.width as usize, img.height as usize)?;
         fs::write(&filepath, &png_bytes).map_err(|e| e.to_string())?;
 
         let entry = ClipboardEntry {
@@ -265,17 +265,22 @@ fn current_signature(clipboard: &mut Clipboard) -> Option<ClipboardSignature> {
     None
 }
 
-/// Simple BGRA to PNG conversion using a minimal encoder
-fn bgra_to_png(bytes: &[u8], width: usize, height: usize) -> Result<Vec<u8>, String> {
-    let mut rgba = Vec::with_capacity(bytes.len());
-    for chunk in bytes.chunks(4) {
-        if chunk.len() == 4 {
-            rgba.push(chunk[2]); // R
-            rgba.push(chunk[1]); // G
-            rgba.push(chunk[0]); // B
-            rgba.push(chunk[3]); // A
-        }
-    }
+/// Encode RGBA pixel data into a PNG.
+///
+/// `arboard` already normalizes the platform-native clipboard format
+/// (BGRA on Windows) into standard RGBA before handing it to us, so the
+/// bytes are used as-is without any channel swapping.
+fn rgba_to_png(bytes: &[u8], width: usize, height: usize) -> Result<Vec<u8>, String> {
+    // The image is already RGBA; copy it straight through so channels aren't
+    // swapped a second time (which is what produced the red/blue inversion).
+    let rgba: Vec<u8> = bytes
+        .chunks(4)
+        .flat_map(|chunk| match chunk.len() {
+            4 => chunk.to_vec(),
+            3 => vec![chunk[0], chunk[1], chunk[2], 255],
+            _ => chunk.to_vec(),
+        })
+        .collect();
 
     let mut png = Vec::new();
     png.extend_from_slice(&[137, 80, 78, 71, 13, 10, 26, 10]);
