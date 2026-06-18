@@ -1,0 +1,51 @@
+name: Deploy Landing Page
+
+# Publishes landing.html as a GitHub Pages site so the project has a public
+# marketing URL (https://yingjunnan.github.io/XCopy/).
+#
+# landing.html is a self-contained single file, so deployment is just:
+#   1. copy landing.html -> index.html (so the site root serves the landing)
+#   2. upload the single file to Pages
+# The repo's real index.html (the Tauri window entry) is untouched.
+on:
+  push:
+    branches: [main]
+    paths:
+      - "landing.html"
+      - ".github/workflows/deploy-pages.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Avoid overlapping Pages deployments.
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Prepare site
+        run: |
+          mkdir -p _site
+          # Serve the landing page at the site root.
+          cp landing.html _site/index.html
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
