@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { openUrl } from "@tauri-apps/plugin-opener";
 import type { AppSettings, StorageUsage } from "../types";
 
 const DEFAULT_SETTINGS: AppSettings = {
@@ -141,6 +142,15 @@ const SettingsPanel: React.FC = () => {
       ...current,
       autoStart: !current.autoStart,
     }));
+  }, []);
+
+  const openWebsite = useCallback(async () => {
+    try {
+      await openUrl("https://xcopy.debugmy.com");
+    } catch (err) {
+      // Opening the browser is best-effort; never block the user on it.
+      console.warn("打开官网失败", String(err));
+    }
   }, []);
 
   const updateNumericSetting = useCallback(
@@ -381,6 +391,43 @@ const SettingsPanel: React.FC = () => {
               value={storage?.imagesBytes}
               isLast
             />
+          </section>
+
+          <section className="rounded-xl border border-slate-900/[0.08] bg-white p-4 shadow-[0_1px_2px_rgba(31,41,55,0.05)]">
+            <div className="flex items-center justify-between gap-3">
+              <div className="min-w-0">
+                <h2 className="text-[13px] font-semibold text-slate-900">官网</h2>
+                <p className="mt-1 text-[11px] leading-4 text-slate-500">
+                  查看介绍、下载最新版本
+                </p>
+              </div>
+              <a
+                role="button"
+                onClick={openWebsite}
+                tabIndex={0}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    openWebsite();
+                  }
+                }}
+                className="
+                  no-drag flex h-8 flex-shrink-0 cursor-pointer items-center gap-1 rounded-lg px-3
+                  text-[12px] font-semibold text-[#0067c0] transition-all duration-150
+                  hover:bg-[#0067c0]/10 active:scale-95
+                "
+              >
+                xcopy.debugmy.com
+                <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M14 5h5v5M19 5l-9 9M19 14v5a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h5"
+                  />
+                </svg>
+              </a>
+            </div>
           </section>
         </div>
       </div>
