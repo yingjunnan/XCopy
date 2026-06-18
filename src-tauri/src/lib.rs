@@ -19,6 +19,11 @@ use tauri::{
 const TRAY_SHOW_ID: &str = "show-main-window";
 const TRAY_EXIT_ID: &str = "exit-app";
 
+/// Marker file written after the first-run window has been shown once.
+/// Its absence is treated as "never launched before": we pop up the main
+/// window so a freshly installed user sees the app is ready.
+const FIRST_RUN_MARKER: &str = ".first_run_shown";
+
 struct AppState {
     db: Arc<Database>,
     clipboard_state: Arc<clipboard::ClipboardState>,
@@ -265,6 +270,9 @@ pub fn run() {
                 .app_data_dir()
                 .expect("Failed to get app data dir");
             let settings_path = app_settings::settings_path(&app_data_dir);
+            // Marker for the first-run onboarding window; resolve it now, before
+            // app_data_dir is moved into the clipboard monitor thread below.
+            let first_run_marker = app_data_dir.join(FIRST_RUN_MARKER);
             let mut settings = app_settings::load_settings_from_path(&settings_path)
                 .unwrap_or_else(|e| {
                     eprintln!("[XCopy] failed to load settings, using defaults: {}", e);
@@ -301,6 +309,21 @@ pub fn run() {
 
             register_app_shortcut(app.handle(), &settings.shortcut)?;
             setup_tray(app)?;
+
+            // First-run onboarding: the very first time the app launches after
+            // install (marker file absent), pop up the main window once so the
+            // user sees it's ready. Subsequent launches stay hidden as usual.
+            if !first_run_marker.exists() {
+                eprintln!("[XCopy] first run detected, showing main window");
+                show_main_window(app.handle(), false);
+                if let Err(e) = std::fs::write(&first_run_marker, "") {
+                    eprintln!(
+                        "[XCopy] failed to write first-run marker at {}: {}",
+                        first_run_marker.display(),
+                        e
+                    );
+                }
+            }
 
             Ok(())
         })
