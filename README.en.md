@@ -23,6 +23,7 @@ A lightweight Windows clipboard history tool: automatically records text, links,
 ## Features
 
 - **🖥️ Global Hotkey Summon** — Pop it up with `Ctrl+Shift+V` (default), grab what you need, move on. Auto-hides on blur so it never interrupts your flow.
+- **⚡ Double-Tap Ctrl Quick Paste** — Double-tap Ctrl while typing in any app to summon a lightweight picker at the cursor. Select an entry and it pastes straight into your caret — no second `Ctrl+V` needed. Like PowerToys' Win+V, but handier.
 - **📋 Auto-Record Everything** — Text, links, and images are captured silently in the background and de-duplicated by content hash. No repeats, no clutter.
 - **🔍 Instant Search & Categories** — All / Text / Link / Image tabs with live keyword filtering. Find any entry at a glance, even with hundreds of records.
 - **🖼️ Image Preview** — View screenshots in a dedicated window with mouse-wheel zoom and drag-to-pan. Every detail, clearly visible.
@@ -42,8 +43,9 @@ Grab the latest `XCopy_*-setup.exe` from [Releases](https://github.com/yingjunna
 1. After installation, the app lives in the system tray and records your clipboard in the background.
 2. Copy any text, link, or screenshot — entries are saved automatically.
 3. Press `Ctrl+Shift+V` (changeable in Settings) to open the main window.
-4. Click any entry to re-copy it; image entries offer a "view large" button.
-5. Filter instantly via the search box or category tabs at the top.
+4. **Double-tap Ctrl** to summon the quick-paste panel at the cursor; pick with ↑↓ and Enter to paste straight into your caret (toggle in Settings).
+5. Click any entry to re-copy it; image entries offer a "view large" button.
+6. Filter instantly via the search box or category tabs at the top.
 
 > On the very first launch after install, the main window pops up once to signal the app is ready.
 

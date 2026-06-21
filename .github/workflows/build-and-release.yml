@@ -3,8 +3,9 @@ name: Build and Release
 # When a commit lands on main (direct push or a merged pull request), build the
 # Windows NSIS installer and publish a new GitHub Release with the artifact.
 #
-# The app version is currently fixed at 0.1.0, so each push gets a unique tag of
-# the form `v0.1.0-r<run_number>` to avoid collisions with previous releases.
+# The app version is read dynamically from src-tauri/tauri.conf.json, so each
+# push gets a unique tag of the form `v<version>-r<run_number>` to avoid
+# collisions with previous releases.
 on:
   push:
     branches: [main]
@@ -19,6 +20,15 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      # Read the app version from tauri.conf.json so the Release tag/name track
+      # the real version instead of a hardcoded value.
+      - name: Read app version
+        id: version
+        shell: bash
+        run: |
+          version=$(node -p "require('./src-tauri/tauri.conf.json').version")
+          echo "version=$version" >> "$GITHUB_OUTPUT"
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -45,11 +55,12 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tagName: v0.1.0-r${{ github.run_number }}
-          releaseName: "XCopy v0.1.0 (build ${{ github.run_number }})"
+          tagName: v${{ steps.version.outputs.version }}-r${{ github.run_number }}
+          releaseName: "XCopy v${{ steps.version.outputs.version }} (build ${{ github.run_number }})"
           releaseBody: |
             自动构建 — 由 main 分支推送触发。
 
+            - 版本: v${{ steps.version.outputs.version }}
             - 构建: #${{ github.run_number }}
             - 提交: ${{ github.sha }}
             - 分支: ${{ github.ref_name }}
