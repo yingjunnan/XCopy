@@ -37,6 +37,129 @@ impl DoubleClickDetector {
     pub fn on_ctrl_release(&mut self) {}
 }
 
+#[cfg(target_os = "windows")]
+pub mod win {
+    use std::sync::Mutex;
+    use std::time::Instant;
+    use tauri::{AppHandle, Emitter};
+    use windows::Win32::Foundation::{LPARAM, LRESULT, WPARAM};
+    use windows::Win32::UI::Input::KeyboardAndMouse::{VK_CONTROL, VK_LCONTROL, VK_RCONTROL};
+    use windows::Win32::UI::WindowsAndMessaging::{
+        CallNextHookEx, DispatchMessageW, GetMessageW, GetSystemMetrics, SetWindowsHookExW,
+        TranslateMessage, UnhookWindowsHookEx, KBDLLHOOKSTRUCT, MSG, SM_CXSCREEN,
+        SM_CYSCREEN, WH_KEYBOARD_LL, WINDOWS_HOOK_ID,
+    };
+
+    const WM_KEYDOWN: u32 = 0x0100;
+    const WM_SYSKEYDOWN: u32 = 0x0104;
+
+    /// 全局状态:双击检测器 + 是否启用 + 唤起回调用的 AppHandle。
+    /// 钩子回调在独立线程跑消息循环,通过 Mutex 访问。
+    struct HookState {
+        detector: super::DoubleClickDetector,
+        enabled: bool,
+        app_handle: AppHandle,
+    }
+
+    static HOOK_STATE: Mutex<Option<HookState>> = Mutex::new(None);
+
+    /// 钩子回调。只检测 Ctrl keydown 做双击判定,不消费任何按键
+    /// (始终 CallNextHookEx 透传,保证 Ctrl 的正常功能不受影响)。
+    unsafe extern "system" fn hook_proc(code: i32, wparam: WPARAM, lparam: LPARAM) -> LRESULT {
+        let wparam_u = wparam.0 as u32;
+        if wparam_u == WM_KEYDOWN || wparam_u == WM_SYSKEYDOWN {
+            let kb = &*(lparam.0 as *const KBDLLHOOKSTRUCT);
+            let vk = kb.vkCode;
+            if vk == VK_CONTROL.0 as u32
+                || vk == VK_LCONTROL.0 as u32
+                || vk == VK_RCONTROL.0 as u32
+            {
+                let now = Instant::now();
+                let trigger = {
+                    let mut state_guard = HOOK_STATE.lock().unwrap();
+                    if let Some(state) = state_guard.as_mut() {
+                        if state.enabled && state.detector.on_ctrl_press(now) {
+                            let handle = state.app_handle.clone();
+                            Some(handle)
+                        } else {
+                            None
+                        }
+                    } else {
+                        None
+                    }
+                };
+                // 在锁外触发,避免阻塞钩子链或死锁。
+                if let Some(handle) = trigger {
+                    let _ = handle.emit("quick-paste-trigger", ());
+                }
+            }
+        }
+        CallNextHookEx(None, code, wparam, lparam)
+    }
+
+    /// 安装低级键盘钩子并启动消息循环。在独立线程调用。
+    /// 间隔 ms 从 settings 传入;启用状态由 enabled 控制。
+    pub fn install(app_handle: AppHandle, interval_ms: u32, enabled: bool) {
+        {
+            let mut state = HOOK_STATE.lock().unwrap();
+            *state = Some(HookState {
+                detector: super::DoubleClickDetector::new(200, interval_ms),
+                enabled,
+                app_handle: app_handle.clone(),
+            });
+        }
+
+        std::thread::spawn(move || {
+            unsafe {
+                let hook = SetWindowsHookExW(
+                    WINDOWS_HOOK_ID(WH_KEYBOARD_LL.0),
+                    Some(hook_proc),
+                    None,
+                    0,
+                );
+                if let Ok(hook) = hook {
+                    // 消息循环:低级钩子必须有消息泵,否则会被系统卸载。
+                    let mut msg = MSG::default();
+                    // GetMessageW 返回 0(WM_QUIT) 或 -1(错误) 时退出。
+                    while GetMessageW(&mut msg, None, 0, 0).into() {
+                        let _ = TranslateMessage(&msg);
+                        DispatchMessageW(&msg);
+                    }
+
+                    let _ = UnhookWindowsHookEx(hook);
+                }
+            }
+        });
+    }
+
+    /// 动态开关:更新 enabled 状态(不重装钩子)。
+    pub fn set_enabled(enabled: bool) {
+        if let Some(state) = HOOK_STATE.lock().unwrap().as_mut() {
+            state.enabled = enabled;
+        }
+    }
+
+    /// 供 quick_paste 模块复用:取屏幕尺寸。
+    pub fn screen_size() -> (i32, i32) {
+        unsafe {
+            let cx = GetSystemMetrics(SM_CXSCREEN);
+            let cy = GetSystemMetrics(SM_CYSCREEN);
+            (cx, cy)
+        }
+    }
+}
+
+#[cfg(not(target_os = "windows"))]
+pub mod win {
+    use tauri::AppHandle;
+
+    pub fn install(_app_handle: AppHandle, _interval_ms: u32, _enabled: bool) {}
+    pub fn set_enabled(_enabled: bool) {}
+    pub fn screen_size() -> (i32, i32) {
+        (0, 0)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

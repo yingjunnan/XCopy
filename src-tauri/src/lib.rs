@@ -152,6 +152,8 @@ fn save_app_settings(
 
     register_app_shortcut(&app, &next_settings.shortcut)?;
     app_settings::set_auto_start_enabled(next_settings.auto_start)?;
+    // Sync the double-tap-Ctrl hook toggle without reinstalling the hook.
+    hotkey_hook::win::set_enabled(next_settings.quick_paste_enabled);
     app_settings::save_settings_to_path(&state.settings_path, &next_settings)?;
     state.db.set_retention_policy(RetentionPolicy {
         max_entries: next_settings.max_history_entries,
@@ -313,6 +315,14 @@ pub fn run() {
 
             register_app_shortcut(app.handle(), &settings.shortcut)?;
             setup_tray(app)?;
+
+            // Low-level keyboard hook: detect double-tap Ctrl to summon the
+            // quick-paste panel. Runs on its own thread with a message pump.
+            hotkey_hook::win::install(
+                app.handle().clone(),
+                settings.double_click_interval_ms,
+                settings.quick_paste_enabled,
+            );
 
             // First-run onboarding: the very first time the app launches after
             // install (marker file absent), pop up the main window once so the
