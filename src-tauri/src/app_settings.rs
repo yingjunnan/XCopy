@@ -10,6 +10,8 @@ pub const MIN_HISTORY_ENTRIES: usize = 1;
 pub const MAX_HISTORY_ENTRIES: usize = 100_000;
 pub const MIN_RETENTION_DAYS: i64 = 1;
 pub const MAX_RETENTION_DAYS: i64 = 3650;
+pub const MIN_DOUBLE_CLICK_INTERVAL_MS: u32 = 200;
+pub const MAX_DOUBLE_CLICK_INTERVAL_MS: u32 = 400;
 
 const SETTINGS_FILE_NAME: &str = "settings.json";
 const AUTOSTART_VALUE_NAME: &str = "XCopy";
@@ -23,6 +25,10 @@ pub struct AppSettings {
     pub max_history_entries: usize,
     #[serde(default = "default_retention_days")]
     pub retention_days: i64,
+    #[serde(default = "default_quick_paste_enabled")]
+    pub quick_paste_enabled: bool,
+    #[serde(default = "default_double_click_interval_ms")]
+    pub double_click_interval_ms: u32,
 }
 
 impl Default for AppSettings {
@@ -32,6 +38,8 @@ impl Default for AppSettings {
             shortcut: DEFAULT_SHORTCUT.to_string(),
             max_history_entries: DEFAULT_MAX_HISTORY_ENTRIES,
             retention_days: DEFAULT_RETENTION_DAYS,
+            quick_paste_enabled: true,
+            double_click_interval_ms: 300,
         }
     }
 }
@@ -42,6 +50,14 @@ fn default_max_history_entries() -> usize {
 
 fn default_retention_days() -> i64 {
     DEFAULT_RETENTION_DAYS
+}
+
+fn default_quick_paste_enabled() -> bool {
+    true
+}
+
+fn default_double_click_interval_ms() -> u32 {
+    300
 }
 
 pub fn settings_path(app_data_dir: &Path) -> std::path::PathBuf {
@@ -76,6 +92,9 @@ pub fn normalize_settings(mut settings: AppSettings) -> Result<AppSettings, Stri
     settings.retention_days = settings
         .retention_days
         .clamp(MIN_RETENTION_DAYS, MAX_RETENTION_DAYS);
+    settings.double_click_interval_ms = settings
+        .double_click_interval_ms
+        .clamp(MIN_DOUBLE_CLICK_INTERVAL_MS, MAX_DOUBLE_CLICK_INTERVAL_MS);
     Ok(settings)
 }
 
@@ -371,6 +390,14 @@ mod tests {
     }
 
     #[test]
+    fn default_settings_enable_quick_paste_with_300ms_interval() {
+        let settings = AppSettings::default();
+
+        assert!(settings.quick_paste_enabled);
+        assert_eq!(settings.double_click_interval_ms, 300);
+    }
+
+    #[test]
     fn normalizes_readable_shortcut_input_for_global_registration() {
         let shortcut = normalize_shortcut_input(" Ctrl + Shift + v ").unwrap();
 
@@ -401,6 +428,8 @@ mod tests {
             shortcut: "control+alt+KeyX".to_string(),
             max_history_entries: 250,
             retention_days: 14,
+            quick_paste_enabled: false,
+            double_click_interval_ms: 250,
         };
 
         save_settings_to_path(&path, &settings).unwrap();
@@ -414,6 +443,8 @@ mod tests {
                 shortcut: "Ctrl+Alt+X".to_string(),
                 max_history_entries: 250,
                 retention_days: 14,
+                quick_paste_enabled: false,
+                double_click_interval_ms: 250,
             }
         );
     }
@@ -435,16 +466,56 @@ mod tests {
     }
 
     #[test]
+    fn loads_older_settings_with_default_quick_paste_values() {
+        let path = temp_settings_path("legacy-quickpaste");
+        std::fs::write(
+            &path,
+            r#"{"autoStart":true,"shortcut":"Ctrl+Shift+V","maxHistoryEntries":100,"retentionDays":7}"#,
+        )
+        .unwrap();
+
+        let loaded = load_settings_from_path(&path).unwrap();
+        let _ = std::fs::remove_file(&path);
+
+        assert!(loaded.quick_paste_enabled);
+        assert_eq!(loaded.double_click_interval_ms, 300);
+    }
+
+    #[test]
     fn clamps_retention_settings_to_supported_range() {
         let settings = normalize_settings(AppSettings {
             auto_start: false,
             shortcut: DEFAULT_SHORTCUT.to_string(),
             max_history_entries: 0,
             retention_days: 0,
+            quick_paste_enabled: true,
+            double_click_interval_ms: 0,
         })
         .unwrap();
 
         assert_eq!(settings.max_history_entries, MIN_HISTORY_ENTRIES);
         assert_eq!(settings.retention_days, MIN_RETENTION_DAYS);
+        assert_eq!(
+            settings.double_click_interval_ms,
+            MIN_DOUBLE_CLICK_INTERVAL_MS
+        );
+    }
+
+    #[test]
+    fn clamps_double_click_interval_to_supported_range() {
+        let settings = normalize_settings(AppSettings {
+            auto_start: false,
+            shortcut: DEFAULT_SHORTCUT.to_string(),
+            max_history_entries: 100,
+            retention_days: 30,
+            quick_paste_enabled: true,
+            double_click_interval_ms: 9999,
+        })
+        .unwrap();
+
+        assert_eq!(
+            settings.double_click_interval_ms,
+            MAX_DOUBLE_CLICK_INTERVAL_MS
+        );
     }
 }
