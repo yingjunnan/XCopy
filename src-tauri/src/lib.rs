@@ -1,6 +1,7 @@
 mod app_settings;
 mod clipboard;
 mod db;
+mod hotkey_hook;
 mod models;
 mod window_tracker;
 
