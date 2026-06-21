@@ -34,6 +34,7 @@ impl DoubleClickDetector {
     }
 
     /// Ctrl keyup 不影响判定(只看 keydown),保留接口以便将来扩展。
+    #[allow(dead_code)]
     pub fn on_ctrl_release(&mut self) {}
 }
 
