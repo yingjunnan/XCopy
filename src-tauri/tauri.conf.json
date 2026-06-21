@@ -12,6 +12,7 @@
   "app": {
     "windows": [
       {
+        "label": "main",
         "title": "XCopy",
         "width": 420,
         "height": 640,
@@ -22,6 +23,20 @@
         "visible": false,
         "center": true,
         "shadow": false
+      },
+      {
+        "label": "quick-paste",
+        "url": "quick_paste.html",
+        "title": "Quick Paste",
+        "width": 320,
+        "height": 360,
+        "resizable": false,
+        "decorations": false,
+        "transparent": true,
+        "alwaysOnTop": true,
+        "visible": false,
+        "skipTaskbar": true,
+        "shadow": true
       }
     ],
     "security": {

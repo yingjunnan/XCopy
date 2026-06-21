@@ -3,6 +3,7 @@ pub mod win {
     use std::sync::Mutex;
     use std::thread;
     use std::time::Duration;
+    use tauri::Manager;
     use windows::Win32::Foundation::{HWND, POINT};
     use windows::Win32::System::Threading::{AttachThreadInput, GetCurrentThreadId};
     use windows::Win32::UI::Input::KeyboardAndMouse::{
@@ -114,6 +115,23 @@ pub mod win {
             (point.x, point.y)
         }
     }
+
+    /// 唤起面板:记录目标窗口 + 取鼠标坐标 + clamp 定位 + 显示窗口。
+    pub fn show_panel(app: &tauri::AppHandle) {
+        remember_target_window();
+
+        let (cursor_x, cursor_y) = cursor_pos();
+        let (screen_w, screen_h) = crate::hotkey_hook::win::screen_size();
+        let (x, y) = super::compute_panel_position(cursor_x, cursor_y, screen_w, screen_h);
+
+        if let Some(window) = app.get_webview_window("quick-paste") {
+            use tauri::PhysicalPosition;
+            // 鼠标坐标是物理像素,用 PhysicalPosition 直接对应。
+            let _ = window.set_position(PhysicalPosition::new(x, y));
+            let _ = window.show();
+            let _ = window.set_focus();
+        }
+    }
 }
 
 #[cfg(not(target_os = "windows"))]
@@ -125,6 +143,7 @@ pub mod win {
     pub fn cursor_pos() -> (i32, i32) {
         (0, 0)
     }
+    pub fn show_panel(_app: &tauri::AppHandle) {}
 }
 
 /// 面板尺寸常量(跨平台共享,供 clamp 计算用)。

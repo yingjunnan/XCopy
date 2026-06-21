@@ -15,7 +15,7 @@ use std::sync::{Arc, Mutex};
 use tauri::{
     menu::{Menu, MenuItem, PredefinedMenuItem},
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
-    Emitter, Manager,
+    Emitter, Listener, Manager,
 };
 
 const TRAY_SHOW_ID: &str = "show-main-window";
@@ -175,6 +175,21 @@ fn hide_main_window(window: tauri::WebviewWindow) -> Result<(), String> {
     window.hide().map_err(|e| e.to_string())
 }
 
+#[tauri::command]
+fn show_quick_paste_panel(app: tauri::AppHandle) -> Result<(), String> {
+    quick_paste::win::show_panel(&app);
+    Ok(())
+}
+
+#[tauri::command]
+fn paste_from_quick_paste(app: tauri::AppHandle, content: String) -> Result<(), String> {
+    quick_paste::win::paste_text(&content)?;
+    if let Some(window) = app.get_webview_window("quick-paste") {
+        let _ = window.hide();
+    }
+    Ok(())
+}
+
 fn request_history_refresh(window: &tauri::WebviewWindow) {
     let _ = window.emit("window-shown", ());
     let _ = window.eval("window.__XCOPY_REFRESH_HISTORY?.();");
@@ -325,6 +340,13 @@ pub fn run() {
                 settings.quick_paste_enabled,
             );
 
+            // Double-tap Ctrl fires "quick-paste-trigger" from the hook thread;
+            // summon the panel on the main thread.
+            let trigger_handle = app.handle().clone();
+            app.listen("quick-paste-trigger", move |_event| {
+                quick_paste::win::show_panel(&trigger_handle);
+            });
+
             // First-run onboarding: the very first time the app launches after
             // install (marker file absent), pop up the main window once so the
             // user sees it's ready. Subsequent launches stay hidden as usual.
@@ -352,6 +374,8 @@ pub fn run() {
             save_app_settings,
             hide_main_window,
             get_storage_usage,
+            show_quick_paste_panel,
+            paste_from_quick_paste,
         ])
         .on_window_event(|window, event| {
             // The main popup hides shortly after losing focus (its normal UX).
