@@ -3,6 +3,7 @@ mod clipboard;
 mod db;
 mod hotkey_hook;
 mod models;
+mod quick_paste;
 mod window_tracker;
 
 use db::Database;
