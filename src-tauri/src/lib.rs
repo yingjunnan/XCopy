@@ -379,21 +379,26 @@ pub fn run() {
         ])
         .on_window_event(|window, event| {
             // The main popup hides shortly after losing focus (its normal UX).
+            // The quick-paste panel hides immediately on losing focus (no delay,
+            // per its spec) so clicking outside dismisses it at once.
             // Other windows (e.g. the image preview) are left alone.
             if let tauri::WindowEvent::Focused(false) = event {
-                if window.label() != "main" {
-                    return;
-                }
                 let label = window.label().to_string();
-                let handle = window.app_handle().clone();
-                std::thread::spawn(move || {
-                    std::thread::sleep(std::time::Duration::from_millis(150));
-                    if let Some(w) = handle.get_webview_window(&label) {
-                        if let Ok(false) = w.is_focused() {
-                            let _ = w.hide();
+                if label == "main" {
+                    let handle = window.app_handle().clone();
+                    std::thread::spawn(move || {
+                        std::thread::sleep(std::time::Duration::from_millis(150));
+                        if let Some(w) = handle.get_webview_window(&label) {
+                            if let Ok(false) = w.is_focused() {
+                                let _ = w.hide();
+                            }
                         }
-                    }
-                });
+                    });
+                } else if label == "quick-paste" {
+                    // Immediate hide, no delay — clicking outside should dismiss
+                    // the lightweight panel at once.
+                    let _ = window.hide();
+                }
             }
         })
         .run(tauri::generate_context!())

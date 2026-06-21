@@ -74,20 +74,9 @@ const QuickPastePanel: React.FC = () => {
     return () => window.removeEventListener("keydown", onKey);
   }, [entries, selected, paste, close]);
 
-  // 失焦即隐藏(无延迟,区别于主窗口)
-  useEffect(() => {
-    if (!isTauriRuntime()) return;
-    const win = getCurrentWindow();
-    let focused = true;
-    const unlisten = win.onFocusChanged(({ payload: nowFocused }) => {
-      // 窗口刚显示会先收到一次失焦再聚焦;用首次聚焦闸门避免立即关闭。
-      if (!focused && !nowFocused) close();
-      focused = nowFocused;
-    });
-    return () => {
-      unlisten.then((fn) => fn()).catch(() => {});
-    };
-  }, [close]);
+  // 失焦隐藏由 Rust 端 on_window_event 处理(立即隐藏,无延迟),
+  // 不在前端维护 onFocusChanged 状态机——那套闸门逻辑在 alwaysOnTop
+  // 窗口上会挡掉真正的失焦事件(详见 bugfix commit)。
 
   // 选中项滚动入视图
   useEffect(() => {
