@@ -20,6 +20,8 @@ export interface AppSettings {
   shortcut: string;
   maxHistoryEntries: number;
   retentionDays: number;
+  quickPasteEnabled: boolean;
+  doubleClickIntervalMs: number;
 }
 
 export interface StorageUsage {

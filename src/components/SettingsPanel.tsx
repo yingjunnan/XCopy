@@ -8,6 +8,8 @@ const DEFAULT_SETTINGS: AppSettings = {
   shortcut: "Ctrl+Shift+V",
   maxHistoryEntries: 1000,
   retentionDays: 30,
+  quickPasteEnabled: true,
+  doubleClickIntervalMs: 300,
 };
 
 const isTauriRuntime = () => typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
@@ -131,7 +133,8 @@ const SettingsPanel: React.FC = () => {
       settings.autoStart !== savedSettings.autoStart ||
       settings.shortcut !== savedSettings.shortcut ||
       settings.maxHistoryEntries !== savedSettings.maxHistoryEntries ||
-      settings.retentionDays !== savedSettings.retentionDays,
+      settings.retentionDays !== savedSettings.retentionDays ||
+      settings.quickPasteEnabled !== savedSettings.quickPasteEnabled,
     [settings, savedSettings]
   );
 
@@ -141,6 +144,15 @@ const SettingsPanel: React.FC = () => {
     setSettings((current) => ({
       ...current,
       autoStart: !current.autoStart,
+    }));
+  }, []);
+
+  const toggleQuickPaste = useCallback(() => {
+    setMessage("");
+    setError("");
+    setSettings((current) => ({
+      ...current,
+      quickPasteEnabled: !current.quickPasteEnabled,
     }));
   }, []);
 
@@ -260,6 +272,37 @@ const SettingsPanel: React.FC = () => {
                     absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white shadow-sm
                     transition-transform duration-200
                     ${settings.autoStart ? "translate-x-5" : "translate-x-0"}
+                  `}
+                />
+              </button>
+            </div>
+          </section>
+
+          <section className="rounded-xl border border-slate-900/[0.08] bg-white p-4 shadow-[0_1px_2px_rgba(31,41,55,0.05)]">
+            <div className="flex items-center justify-between gap-4">
+              <div className="min-w-0">
+                <h2 className="text-[13px] font-semibold text-slate-900">双击 Ctrl 快速粘贴</h2>
+                <p className="mt-1 text-[11px] leading-4 text-slate-500">
+                  {settings.quickPasteEnabled ? "已开启" : "已关闭"} · 双击 Ctrl 在光标处弹出选择条
+                </p>
+              </div>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={settings.quickPasteEnabled}
+                onClick={toggleQuickPaste}
+                disabled={loading || saving}
+                className={`
+                  relative h-6 w-11 rounded-full transition-colors duration-200
+                  ${settings.quickPasteEnabled ? "bg-[#0067c0]" : "bg-slate-300"}
+                  disabled:cursor-not-allowed disabled:opacity-60
+                `}
+              >
+                <span
+                  className={`
+                    absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white shadow-sm
+                    transition-transform duration-200
+                    ${settings.quickPasteEnabled ? "translate-x-5" : "translate-x-0"}
                   `}
                 />
               </button>
