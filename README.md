@@ -127,7 +127,7 @@ xcopy/
 
 - 工作流:`.github/workflows/build-and-release.yml`
 - 构建状态:[![Build and Release](https://github.com/yingjunnan/XCopy/actions/workflows/build-and-release.yml/badge.svg)](https://github.com/yingjunnan/XCopy/actions)
-- 发布产物:每次推送产生独立 release,tag 形如 `v0.1.0-r<构建序号>`
+- 发布产物:每次推送产生独立 release,tag 形如 `v0.2.0-r<构建序号>`
 
 ## 路线图
 

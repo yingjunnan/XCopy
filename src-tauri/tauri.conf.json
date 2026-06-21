@@ -1,7 +1,7 @@
 {
   "$schema": "https://raw.githubusercontent.com/nicedoc/windows-blur/tauri-v2/tauri.conf.json",
   "productName": "XCopy",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "identifier": "com.xcopy.app",
   "build": {
     "beforeDevCommand": "npm run dev",

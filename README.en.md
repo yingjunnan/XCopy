@@ -127,7 +127,7 @@ On every push to the `main` branch, GitHub Actions automatically builds the NSIS
 
 - Workflow: `.github/workflows/build-and-release.yml`
 - Build status: [![Build and Release](https://github.com/yingjunnan/XCopy/actions/workflows/build-and-release.yml/badge.svg)](https://github.com/yingjunnan/XCopy/actions)
-- Releases: each push produces an independent release, tagged `v0.1.0-r<build-number>`
+- Releases: each push produces an independent release, tagged `v0.2.0-r<build-number>`
 
 ## Roadmap
 
