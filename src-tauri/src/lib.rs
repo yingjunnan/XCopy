@@ -145,6 +145,8 @@ fn save_app_settings(
         shortcut: normalized_shortcut,
         max_history_entries: settings.max_history_entries,
         retention_days: settings.retention_days,
+        quick_paste_enabled: settings.quick_paste_enabled,
+        double_click_interval_ms: settings.double_click_interval_ms,
     })?;
 
     register_app_shortcut(&app, &next_settings.shortcut)?;
