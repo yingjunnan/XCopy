@@ -187,6 +187,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({
     try {
       await openUrl(url);
     } catch (err) {
+      setUpdateMessage("无法打开浏览器，请手动访问 GitHub Releases 页面");
       console.warn("鎵撳紑鏇存柊閾炬帴澶辫触", String(err));
     }
   }, [updateInfo]);
