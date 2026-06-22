@@ -227,6 +227,16 @@ fn show_main_window(app: &tauri::AppHandle, capture_clipboard: bool) {
     }
 }
 
+fn show_onboarding_window(app: &tauri::AppHandle) {
+    if let Some(window) = app.get_webview_window("onboarding") {
+        let _ = window.show();
+        let _ = window.set_focus();
+        eprintln!("[XCopy] onboarding window shown");
+    } else {
+        eprintln!("[XCopy] ERROR: onboarding window not found");
+    }
+}
+
 fn register_app_shortcut(app: &tauri::AppHandle, shortcut: &str) -> Result<(), String> {
     use tauri_plugin_global_shortcut::{GlobalShortcutExt, ShortcutState};
 
@@ -351,8 +361,8 @@ pub fn run() {
             // install (marker file absent), pop up the main window once so the
             // user sees it's ready. Subsequent launches stay hidden as usual.
             if !first_run_marker.exists() {
-                eprintln!("[XCopy] first run detected, showing main window");
-                show_main_window(app.handle(), false);
+                eprintln!("[XCopy] first run detected, showing onboarding");
+                show_onboarding_window(app.handle());
                 if let Err(e) = std::fs::write(&first_run_marker, "") {
                     eprintln!(
                         "[XCopy] failed to write first-run marker at {}: {}",
