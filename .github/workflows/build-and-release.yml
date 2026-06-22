@@ -1,11 +1,8 @@
 name: Build and Release
 
-# When a commit lands on main (direct push or a merged pull request), build the
-# Windows NSIS installer and publish a new GitHub Release with the artifact.
-#
-# The app version is read dynamically from src-tauri/tauri.conf.json, so each
-# push gets a unique tag of the form `v<version>-r<run_number>` to avoid
-# collisions with previous releases.
+# When a commit lands on main, build the Windows NSIS installer and publish a
+# GitHub Release. Releases use SemVer-style tags (`v<version>`), so bump
+# src-tauri/tauri.conf.json before publishing a new installer.
 on:
   push:
     branches: [main]
@@ -21,8 +18,6 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      # Read the app version from tauri.conf.json so the Release tag/name track
-      # the real version instead of a hardcoded value.
       - name: Read app version
         id: version
         shell: bash
@@ -30,42 +25,55 @@ jobs:
           version=$(node -p "require('./src-tauri/tauri.conf.json').version")
           echo "version=$version" >> "$GITHUB_OUTPUT"
 
+      - name: Check release tag
+        id: release_tag
+        shell: bash
+        run: |
+          tag="v${{ steps.version.outputs.version }}"
+          if git ls-remote --exit-code --tags origin "refs/tags/$tag" >/dev/null 2>&1; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+            echo "Release tag $tag already exists; skipping release build."
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Setup Node
+        if: steps.release_tag.outputs.exists != 'true'
         uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: npm
 
       - name: Setup Rust
+        if: steps.release_tag.outputs.exists != 'true'
         uses: dtolnay/rust-toolchain@stable
 
       - name: Cache Rust build
+        if: steps.release_tag.outputs.exists != 'true'
         uses: Swatinem/rust-cache@v2
         with:
           workspaces: src-tauri
 
       - name: Install frontend dependencies
+        if: steps.release_tag.outputs.exists != 'true'
         run: npm ci
 
-      # tauri-action runs the configured `beforeBuildCommand` (npm run build) and
-      # the Rust bundle step, then creates the Release and uploads the NSIS
-      # installer as a release asset.
       - name: Build and publish release
+        if: steps.release_tag.outputs.exists != 'true'
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tagName: v${{ steps.version.outputs.version }}-r${{ github.run_number }}
-          releaseName: "XCopy v${{ steps.version.outputs.version }} (build ${{ github.run_number }})"
+          tagName: v${{ steps.version.outputs.version }}
+          releaseName: "XCopy v${{ steps.version.outputs.version }}"
           releaseBody: |
-            自动构建 — 由 main 分支推送触发。
+            Automated build from the main branch.
+            - Version: v${{ steps.version.outputs.version }}
+            - Build: #${{ github.run_number }}
+            - Commit: ${{ github.sha }}
+            - Branch: ${{ github.ref_name }}
 
-            - 版本: v${{ steps.version.outputs.version }}
-            - 构建: #${{ github.run_number }}
-            - 提交: ${{ github.sha }}
-            - 分支: ${{ github.ref_name }}
-
-            下载下方的 `XCopy_*-setup.exe` 安装包即可在 Windows 10/11 上使用。
+            Download the `XCopy_*-setup.exe` installer below for Windows 10/11.
           releaseDraft: false
           prerelease: false
           args: --target x86_64-pc-windows-msvc

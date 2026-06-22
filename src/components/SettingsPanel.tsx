@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import type { AppSettings, StorageUsage } from "../types";
+import type { UpdateCheckResult } from "../updateChecker";
 
 const DEFAULT_SETTINGS: AppSettings = {
   autoStart: false,
@@ -79,7 +80,19 @@ function formatBytes(bytes: number) {
   return `${rounded} ${units[exponent]}`;
 }
 
-const SettingsPanel: React.FC = () => {
+interface SettingsPanelProps {
+  appVersion: string;
+  checkingForUpdates: boolean;
+  updateInfo: UpdateCheckResult | null;
+  onCheckForUpdates: () => Promise<UpdateCheckResult | null>;
+}
+
+const SettingsPanel: React.FC<SettingsPanelProps> = ({
+  appVersion,
+  checkingForUpdates,
+  updateInfo,
+  onCheckForUpdates,
+}) => {
   const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS);
   const [savedSettings, setSavedSettings] = useState<AppSettings>(DEFAULT_SETTINGS);
   const [loading, setLoading] = useState(true);
@@ -87,6 +100,7 @@ const SettingsPanel: React.FC = () => {
   const [recording, setRecording] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const [updateMessage, setUpdateMessage] = useState("");
   const [storage, setStorage] = useState<StorageUsage | null>(null);
 
   const loadStorageUsage = useCallback(async () => {
@@ -164,6 +178,27 @@ const SettingsPanel: React.FC = () => {
       console.warn("打开官网失败", String(err));
     }
   }, []);
+
+  const openUpdateLink = useCallback(async () => {
+    const url = updateInfo?.downloadUrl ?? updateInfo?.releaseUrl;
+    if (!url) return;
+
+    try {
+      await openUrl(url);
+    } catch (err) {
+      console.warn("鎵撳紑鏇存柊閾炬帴澶辫触", String(err));
+    }
+  }, [updateInfo]);
+
+  const handleCheckForUpdates = useCallback(async () => {
+    setUpdateMessage("");
+    const result = await onCheckForUpdates();
+    if (!result) return;
+
+    if (!result.hasUpdate) {
+      setUpdateMessage("已是最新版本");
+    }
+  }, [onCheckForUpdates]);
 
   const updateNumericSetting = useCallback(
     (key: "maxHistoryEntries" | "retentionDays", value: string) => {
@@ -434,6 +469,55 @@ const SettingsPanel: React.FC = () => {
               value={storage?.imagesBytes}
               isLast
             />
+          </section>
+
+          <section className="rounded-xl border border-slate-900/[0.08] bg-white p-4 shadow-[0_1px_2px_rgba(31,41,55,0.05)]">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <h2 className="text-[13px] font-semibold text-slate-900">软件更新</h2>
+                <p className="mt-1 text-[11px] leading-4 text-slate-500">
+                  当前版本 v{appVersion}
+                  {updateInfo?.hasUpdate && updateInfo.latestVersion
+                    ? ` · 发现 v${updateInfo.latestVersion}`
+                    : ""}
+                </p>
+                {updateMessage && !updateInfo?.hasUpdate && (
+                  <p className="mt-2 text-[11px] font-medium text-[#107c10]">
+                    {updateMessage}
+                  </p>
+                )}
+              </div>
+              <div className="flex flex-shrink-0 flex-col items-end gap-2">
+                {updateInfo?.hasUpdate ? (
+                  <button
+                    type="button"
+                    onClick={openUpdateLink}
+                    disabled={!updateInfo.downloadUrl && !updateInfo.releaseUrl}
+                    className="
+                      flex h-8 items-center justify-center rounded-lg bg-[#0067c0] px-3
+                      text-[12px] font-semibold text-white transition-all duration-150
+                      hover:bg-[#005aab] active:scale-95 disabled:cursor-not-allowed
+                      disabled:bg-slate-300 disabled:text-slate-500
+                    "
+                  >
+                    下载更新
+                  </button>
+                ) : null}
+                <button
+                  type="button"
+                  onClick={handleCheckForUpdates}
+                  disabled={checkingForUpdates}
+                  className="
+                    flex h-8 items-center justify-center rounded-lg px-3 text-[12px] font-semibold
+                    text-[#0067c0] transition-all duration-150
+                    hover:bg-[#0067c0]/10 active:scale-95
+                    disabled:cursor-not-allowed disabled:opacity-60
+                  "
+                >
+                  {checkingForUpdates ? "检查中..." : "检查更新"}
+                </button>
+              </div>
+            </div>
           </section>
 
           <section className="rounded-xl border border-slate-900/[0.08] bg-white p-4 shadow-[0_1px_2px_rgba(31,41,55,0.05)]">

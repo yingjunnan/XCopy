@@ -1,12 +1,33 @@
-import React, { useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import ClipboardPanel from "./components/ClipboardPanel";
 import SettingsPanel from "./components/SettingsPanel";
+import { checkForUpdates, type UpdateCheckResult } from "./updateChecker";
 
 const isTauriRuntime = () => typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 
 const App: React.FC = () => {
   const [view, setView] = useState<"history" | "settings">("history");
+  const [updateInfo, setUpdateInfo] = useState<UpdateCheckResult | null>(null);
+  const [checkingForUpdates, setCheckingForUpdates] = useState(false);
+
+  const runUpdateCheck = useCallback(async () => {
+    setCheckingForUpdates(true);
+    try {
+      const result = await checkForUpdates(__APP_VERSION__);
+      setUpdateInfo(result);
+      return result;
+    } catch (err) {
+      console.warn("Check for updates failed", err);
+      return null;
+    } finally {
+      setCheckingForUpdates(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    runUpdateCheck();
+  }, [runUpdateCheck]);
 
   const handleClose = async () => {
     if (isTauriRuntime()) {
@@ -115,7 +136,16 @@ const App: React.FC = () => {
       </div>
 
       <div className="h-[calc(100%-40px)] bg-slate-50">
-        {view === "history" ? <ClipboardPanel /> : <SettingsPanel />}
+        {view === "history" ? (
+          <ClipboardPanel />
+        ) : (
+          <SettingsPanel
+            appVersion={__APP_VERSION__}
+            checkingForUpdates={checkingForUpdates}
+            updateInfo={updateInfo}
+            onCheckForUpdates={runUpdateCheck}
+          />
+        )}
       </div>
     </div>
   );
