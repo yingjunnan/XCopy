@@ -182,6 +182,13 @@ fn show_quick_paste_panel(app: tauri::AppHandle) -> Result<(), String> {
 }
 
 #[tauri::command]
+fn finish_onboarding(app: tauri::AppHandle, window: tauri::WebviewWindow) -> Result<(), String> {
+    let _ = window.hide();
+    show_main_window(&app, false);
+    Ok(())
+}
+
+#[tauri::command]
 fn paste_from_quick_paste(app: tauri::AppHandle, content: String) -> Result<(), String> {
     quick_paste::win::paste_text(&content)?;
     if let Some(window) = app.get_webview_window("quick-paste") {
@@ -386,6 +393,7 @@ pub fn run() {
             get_storage_usage,
             show_quick_paste_panel,
             paste_from_quick_paste,
+            finish_onboarding,
         ])
         .on_window_event(|window, event| {
             // The main popup hides shortly after losing focus (its normal UX).
