@@ -37,6 +37,20 @@
         "visible": false,
         "skipTaskbar": true,
         "shadow": true
+      },
+      {
+        "label": "onboarding",
+        "url": "onboarding.html",
+        "title": "欢迎使用 XCopy",
+        "width": 480,
+        "height": 560,
+        "resizable": false,
+        "decorations": false,
+        "transparent": true,
+        "alwaysOnTop": true,
+        "visible": false,
+        "center": true,
+        "shadow": true
       }
     ],
     "security": {
