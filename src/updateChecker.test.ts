@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   checkForUpdates,
+  getUpdateOpenUrl,
   isNewerVersion,
   updateInfoFromReleases,
   versionFromTag,
@@ -63,5 +64,30 @@ test("throws on network failure so the caller can decide to stay silent", async 
         throw new Error("offline");
       }),
     /offline/
+  );
+});
+
+test("opens the release page before falling back to the installer asset", () => {
+  assert.equal(
+    getUpdateOpenUrl({
+      currentVersion: "0.2.0",
+      latestVersion: "0.3.0",
+      latestTag: "v0.3.0",
+      releaseUrl: "https://github.com/yingjunnan/XCopy/releases/tag/v0.3.0",
+      downloadUrl:
+        "https://github.com/yingjunnan/XCopy/releases/download/v0.3.0/XCopy_0.3.0_x64-setup.exe",
+      hasUpdate: true,
+    }),
+    "https://github.com/yingjunnan/XCopy/releases/tag/v0.3.0"
+  );
+
+  assert.equal(
+    getUpdateOpenUrl({
+      currentVersion: "0.2.0",
+      downloadUrl:
+        "https://github.com/yingjunnan/XCopy/releases/download/v0.3.0/XCopy_0.3.0_x64-setup.exe",
+      hasUpdate: true,
+    }),
+    "https://github.com/yingjunnan/XCopy/releases/download/v0.3.0/XCopy_0.3.0_x64-setup.exe"
   );
 });

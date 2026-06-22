@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import type { AppSettings, StorageUsage } from "../types";
+import { getUpdateOpenUrl } from "../updateChecker";
 import type { UpdateCheckResult } from "../updateChecker";
 
 const DEFAULT_SETTINGS: AppSettings = {
@@ -180,7 +181,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({
   }, []);
 
   const openUpdateLink = useCallback(async () => {
-    const url = updateInfo?.downloadUrl ?? updateInfo?.releaseUrl;
+    const url = getUpdateOpenUrl(updateInfo);
     if (!url) return;
 
     try {
@@ -492,7 +493,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({
                   <button
                     type="button"
                     onClick={openUpdateLink}
-                    disabled={!updateInfo.downloadUrl && !updateInfo.releaseUrl}
+                    disabled={!getUpdateOpenUrl(updateInfo)}
                     className="
                       flex h-8 items-center justify-center rounded-lg bg-[#0067c0] px-3
                       text-[12px] font-semibold text-white transition-all duration-150
@@ -500,7 +501,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({
                       disabled:bg-slate-300 disabled:text-slate-500
                     "
                   >
-                    下载更新
+                    查看更新
                   </button>
                 ) : null}
                 <button

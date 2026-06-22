@@ -83,6 +83,10 @@ export function updateInfoFromReleases(
   };
 }
 
+export function getUpdateOpenUrl(updateInfo: UpdateCheckResult | null): string | undefined {
+  return updateInfo?.releaseUrl ?? updateInfo?.downloadUrl;
+}
+
 function parseVersionParts(version: string): number[] | undefined {
   const parts = version.split(".");
   if (parts.length < 2) return undefined;
