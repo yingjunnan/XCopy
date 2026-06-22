@@ -37,13 +37,24 @@
   ClearErrors
 !macroend
 
+; Ask Explorer to refresh shell associations and icon cache after replacing
+; the installed executable. Without this, Windows can keep showing an older
+; cached shortcut icon even when the embedded exe icon has changed.
+!macro XC_RefreshShellIconCache
+  ClearErrors
+  System::Call 'shell32::SHChangeNotify(i 0x08000000, i 0x0000, i 0, i 0)'
+  ClearErrors
+!macroend
+
 ; Runs at the end of the Install section, after files/shortcuts/registry
 ; are written. Tauri only calls this when the macro is defined.
 !macro NSIS_HOOK_POSTINSTALL
   !insertmacro XC_WriteAutostart
+  !insertmacro XC_RefreshShellIconCache
 !macroend
 
 ; Runs at the end of the Uninstall section.
 !macro NSIS_HOOK_POSTUNINSTALL
   !insertmacro XC_DeleteAutostart
+  !insertmacro XC_RefreshShellIconCache
 !macroend
