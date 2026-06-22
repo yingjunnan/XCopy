@@ -365,8 +365,10 @@ pub fn run() {
             });
 
             // First-run onboarding: the very first time the app launches after
-            // install (marker file absent), pop up the main window once so the
-            // user sees it's ready. Subsequent launches stay hidden as usual.
+            // install (marker file absent), pop up the onboarding wizard so the
+            // user learns the hotkeys. The wizard's "开始使用" button then calls
+            // finish_onboarding, which hides the wizard and shows the main window.
+            // Subsequent launches stay hidden as usual.
             if !first_run_marker.exists() {
                 eprintln!("[XCopy] first run detected, showing onboarding");
                 show_onboarding_window(app.handle());
