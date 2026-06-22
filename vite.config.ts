@@ -24,6 +24,7 @@ export default defineConfig(async () => ({
         main: resolve(__dirname, "index.html"),
         preview: resolve(__dirname, "preview.html"),
         quickPaste: resolve(__dirname, "quick_paste.html"),
+        onboarding: resolve(__dirname, "onboarding.html"),
       },
     },
   },
