@@ -182,6 +182,13 @@ fn show_quick_paste_panel(app: tauri::AppHandle) -> Result<(), String> {
 }
 
 #[tauri::command]
+fn finish_onboarding(app: tauri::AppHandle, window: tauri::WebviewWindow) -> Result<(), String> {
+    let _ = window.hide();
+    show_main_window(&app, false);
+    Ok(())
+}
+
+#[tauri::command]
 fn paste_from_quick_paste(app: tauri::AppHandle, content: String) -> Result<(), String> {
     quick_paste::win::paste_text(&content)?;
     if let Some(window) = app.get_webview_window("quick-paste") {
@@ -224,6 +231,16 @@ fn show_main_window(app: &tauri::AppHandle, capture_clipboard: bool) {
         eprintln!("[XCopy] window shown and refresh requested");
     } else {
         eprintln!("[XCopy] ERROR: main window not found");
+    }
+}
+
+fn show_onboarding_window(app: &tauri::AppHandle) {
+    if let Some(window) = app.get_webview_window("onboarding") {
+        let _ = window.show();
+        let _ = window.set_focus();
+        eprintln!("[XCopy] onboarding window shown");
+    } else {
+        eprintln!("[XCopy] ERROR: onboarding window not found");
     }
 }
 
@@ -348,11 +365,13 @@ pub fn run() {
             });
 
             // First-run onboarding: the very first time the app launches after
-            // install (marker file absent), pop up the main window once so the
-            // user sees it's ready. Subsequent launches stay hidden as usual.
+            // install (marker file absent), pop up the onboarding wizard so the
+            // user learns the hotkeys. The wizard's "开始使用" button then calls
+            // finish_onboarding, which hides the wizard and shows the main window.
+            // Subsequent launches stay hidden as usual.
             if !first_run_marker.exists() {
-                eprintln!("[XCopy] first run detected, showing main window");
-                show_main_window(app.handle(), false);
+                eprintln!("[XCopy] first run detected, showing onboarding");
+                show_onboarding_window(app.handle());
                 if let Err(e) = std::fs::write(&first_run_marker, "") {
                     eprintln!(
                         "[XCopy] failed to write first-run marker at {}: {}",
@@ -376,6 +395,7 @@ pub fn run() {
             get_storage_usage,
             show_quick_paste_panel,
             paste_from_quick_paste,
+            finish_onboarding,
         ])
         .on_window_event(|window, event| {
             // The main popup hides shortly after losing focus (its normal UX).
