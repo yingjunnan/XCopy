@@ -254,12 +254,20 @@ pub mod win {
             }
 
             let width = bi.bmiHeader.biWidth as usize;
-            // biHeight is negative for top-down DIBs (what we want); abs it.
+            // biHeight is negative for top-down DIBs (what we want); abs it
+            // to get the real height for sizing the pixel buffer.
             let height = (bi.bmiHeader.biHeight.unsigned_abs()) as usize;
             if width == 0 || height == 0 {
                 let _ = DeleteDC(hdc);
                 return None;
             }
+
+            // Force a top-down DIB (negative biHeight) so GetDIBits returns
+            // rows in top-to-bottom order, matching what the PNG encoder expects.
+            // Without this the first GetDIBits leaves biHeight as the bitmap's
+            // native (usually positive = bottom-up) value and the icon comes
+            // out vertically flipped.
+            bi.bmiHeader.biHeight = -(height as i32);
 
             let mut pixels = vec![0u8; width * height * 4];
             let copied = GetDIBits(
