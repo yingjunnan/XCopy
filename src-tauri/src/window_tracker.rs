@@ -20,8 +20,8 @@ pub mod win {
     use std::os::windows::ffi::OsStringExt;
     use windows::Win32::Foundation::{CloseHandle, HWND};
     use windows::Win32::Graphics::Gdi::{
-        CreateCompatibleDC, DeleteDC, DeleteObject, GetDIBits, BITMAPINFO, BITMAPINFOHEADER,
-        DIB_RGB_COLORS, HBITMAP,
+        CreateCompatibleDC, DeleteDC, DeleteObject, GetDIBits, GetObjectW, BITMAP, BITMAPINFO,
+        BITMAPINFOHEADER, DIB_RGB_COLORS, HBITMAP,
     };
     use windows::Win32::System::Threading::OpenProcess;
     use windows::Win32::UI::Shell::{
@@ -236,6 +236,25 @@ pub mod win {
     /// Read a 32bpp color bitmap into RGBA bytes plus dimensions.
     fn bitmap_to_rgba(bmp: HBITMAP) -> Option<(Vec<u8>, usize, usize)> {
         unsafe {
+            // Query dimensions via GetObjectW(BITMAP). The alternative — calling
+            // GetDIBits with a NULL buffer to fill in the header — returns 0 on
+            // some systems (observed returning 0 for icon bitmaps here), so we
+            // never rely on the query variant.
+            let mut bmp_info: BITMAP = std::mem::zeroed();
+            let got = GetObjectW(
+                bmp,
+                std::mem::size_of::<BITMAP>() as i32,
+                Some(&mut bmp_info as *mut _ as *mut _),
+            );
+            if got == 0 {
+                return None;
+            }
+            let width = bmp_info.bmWidth as usize;
+            let height = bmp_info.bmHeight as usize;
+            if width == 0 || height == 0 {
+                return None;
+            }
+
             let hdc = CreateCompatibleDC(None);
             if hdc.is_invalid() {
                 return None;
@@ -245,29 +264,11 @@ pub mod win {
             bi.bmiHeader.biPlanes = 1;
             bi.bmiHeader.biBitCount = 32;
             bi.bmiHeader.biCompression = 0; // BI_RGB
-
-            // First call with null buffer to query dimensions.
-            let copied = GetDIBits(hdc, bmp, 0, 0, None, &mut bi, DIB_RGB_COLORS);
-            if copied == 0 {
-                let _ = DeleteDC(hdc);
-                return None;
-            }
-
-            let width = bi.bmiHeader.biWidth as usize;
-            // biHeight is negative for top-down DIBs (what we want); abs it
-            // to get the real height for sizing the pixel buffer.
-            let height = (bi.bmiHeader.biHeight.unsigned_abs()) as usize;
-            if width == 0 || height == 0 {
-                let _ = DeleteDC(hdc);
-                return None;
-            }
-
-            // Force a top-down DIB (negative biHeight) so GetDIBits returns
-            // rows in top-to-bottom order, matching what the PNG encoder expects.
-            // Without this the first GetDIBits leaves biHeight as the bitmap's
-            // native (usually positive = bottom-up) value and the icon comes
-            // out vertically flipped.
+            bi.bmiHeader.biWidth = width as i32;
+            // Negative biHeight => top-down DIB, so rows come back top-to-bottom
+            // (matching the PNG encoder and the mask bitmap below).
             bi.bmiHeader.biHeight = -(height as i32);
+            bi.bmiHeader.biSizeImage = (width as u32) * (height as u32) * 4;
 
             let mut pixels = vec![0u8; width * height * 4];
             let copied = GetDIBits(
@@ -299,6 +300,11 @@ pub mod win {
             if hdc.is_invalid() {
                 return None;
             }
+            // 1bpp DIB rows are padded to a 4-byte boundary. The actual byte
+            // stride per row is ((width + 31) / 32) * 4, and that must also be
+            // what biSizeImage is set to — using the unaligned (width+7)/8
+            // under-sizes the buffer and causes out-of-bounds access on read.
+            let row_bytes = ((width + 31) / 32) * 4;
             let mut bi: BITMAPINFO = std::mem::zeroed();
             bi.bmiHeader.biSize = std::mem::size_of::<BITMAPINFOHEADER>() as u32;
             bi.bmiHeader.biPlanes = 1;
@@ -306,9 +312,9 @@ pub mod win {
             bi.bmiHeader.biCompression = 0;
             bi.bmiHeader.biWidth = width as i32;
             bi.bmiHeader.biHeight = -(height as i32); // top-down
-            bi.bmiHeader.biSizeImage = ((width + 7) / 8 * height) as u32;
+            bi.bmiHeader.biSizeImage = (row_bytes * height) as u32;
 
-            let mut buf = vec![0u8; bi.bmiHeader.biSizeImage as usize];
+            let mut buf = vec![0u8; row_bytes * height];
             let copied = GetDIBits(
                 hdc,
                 mask,
@@ -323,8 +329,7 @@ pub mod win {
                 return None;
             }
 
-            // 1bpp mask: each bit, 0 = opaque, 1 = transparent. Rows padded to 4 bytes.
-            let row_bytes = ((width + 31) / 32) * 4;
+            // 1bpp mask: each bit, 0 = opaque, 1 = transparent.
             let mut alpha = vec![255u8; width * height];
             for y in 0..height {
                 for x in 0..width {
