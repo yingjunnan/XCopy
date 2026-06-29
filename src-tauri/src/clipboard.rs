@@ -176,7 +176,7 @@ fn capture_from_clipboard(
     db: &Database,
     app_data_dir: &Path,
 ) -> Result<Option<ClipboardEntry>, String> {
-    let source_app = win::get_active_window_title();
+    let source = win::get_source_app_info(app_data_dir);
     let now = Utc::now().to_rfc3339();
 
     if let Ok(image_data) = clipboard.get_image() {
@@ -202,8 +202,11 @@ fn capture_from_clipboard(
             id,
             content_type: "image".to_string(),
             content: format!("Image {}x{}", img.width, img.height),
-            source_app,
-            source_app_icon: None,
+            source_app: source.name.clone(),
+            source_app_icon: source
+                .icon_path
+                .as_ref()
+                .map(|p| p.to_string_lossy().to_string()),
             preview: format!("{}x{}px image", img.width, img.height),
             created_at: now,
             image_path: Some(filepath.to_string_lossy().to_string()),
@@ -231,8 +234,11 @@ fn capture_from_clipboard(
             id: Uuid::new_v4().to_string(),
             content_type: detect_content_type(&text).to_string(),
             content: text.clone(),
-            source_app,
-            source_app_icon: None,
+            source_app: source.name.clone(),
+            source_app_icon: source
+                .icon_path
+                .as_ref()
+                .map(|p| p.to_string_lossy().to_string()),
             preview: truncate_preview(&text, 100),
             created_at: now,
             image_path: None,
