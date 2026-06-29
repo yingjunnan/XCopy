@@ -43,6 +43,7 @@ mod tests {
             content_type: "text".to_string(),
             content: content.to_string(),
             source_app: "test".to_string(),
+            source_app_icon: None,
             preview: content.to_string(),
             image_path: None,
             created_at: Utc::now().to_rfc3339(),
@@ -62,6 +63,7 @@ mod tests {
             content_type: "image".to_string(),
             content: "Image 1x1".to_string(),
             source_app: "test".to_string(),
+            source_app_icon: None,
             preview: "1x1px image".to_string(),
             image_path: Some(path.to_string_lossy().to_string()),
             created_at: Utc::now().to_rfc3339(),
@@ -188,6 +190,84 @@ mod tests {
         assert!(!image_path.exists());
         assert!(!images_dir.exists());
     }
+
+    #[test]
+    fn old_database_without_icon_column_migrates_and_stores_icon() {
+        let dir = std::env::temp_dir().join(format!("xcopy-test-{}", Uuid::new_v4()));
+        std::fs::create_dir_all(&dir).unwrap();
+
+        // Simulate an old schema: a table created without source_app_icon.
+        let db_path = dir.join("xcopy.db");
+        {
+            let conn = rusqlite::Connection::open(&db_path).unwrap();
+            conn.execute_batch(
+                "CREATE TABLE clipboard_history (
+                    id TEXT PRIMARY KEY,
+                    content_type TEXT NOT NULL,
+                    content TEXT NOT NULL,
+                    source_app TEXT NOT NULL DEFAULT '',
+                    preview TEXT NOT NULL DEFAULT '',
+                    image_path TEXT,
+                    created_at TEXT NOT NULL
+                );
+                PRAGMA journal_mode=WAL;",
+            )
+            .unwrap();
+            conn.execute(
+                "INSERT INTO clipboard_history (id, content_type, content, source_app, preview, image_path, created_at)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+                rusqlite::params![
+                    "old-id",
+                    "text",
+                    "old content",
+                    "Old App",
+                    "old content",
+                    rusqlite::types::Null,
+                    (Utc::now() - ChronoDuration::days(1)).to_rfc3339()
+                ],
+            )
+            .unwrap();
+        }
+
+        // Opening with Database::new should trigger the migration that adds the column.
+        let db = Database::new(dir).expect("migrated database should open");
+
+        // Old record reads back with source_app_icon == None.
+        let entries = db
+            .query_entries(&ClipboardFilter {
+                query: None,
+                content_type: None,
+                limit: Some(10),
+                offset: Some(0),
+            })
+            .unwrap();
+        assert_eq!(entries.len(), 1);
+        assert_eq!(entries[0].id, "old-id");
+        assert_eq!(entries[0].source_app_icon, None);
+
+        // New record carrying an icon path round-trips through the DB.
+        let mut entry = text_entry("new content");
+        entry.source_app_icon = Some("/some/path/chrome.png".to_string());
+        assert!(db.insert_entry_if_changed(&entry).unwrap());
+
+        let entries = db
+            .query_entries(&ClipboardFilter {
+                query: None,
+                content_type: None,
+                limit: Some(10),
+                offset: Some(0),
+            })
+            .unwrap();
+        assert_eq!(entries.len(), 2);
+        let new_entry = entries
+            .iter()
+            .find(|e| e.content == "new content")
+            .unwrap();
+        assert_eq!(
+            new_entry.source_app_icon,
+            Some("/some/path/chrome.png".to_string())
+        );
+    }
 }
 
 impl Database {
@@ -202,6 +282,7 @@ impl Database {
                 content_type TEXT NOT NULL,
                 content TEXT NOT NULL,
                 source_app TEXT NOT NULL DEFAULT '',
+                source_app_icon TEXT,
                 preview TEXT NOT NULL DEFAULT '',
                 image_path TEXT,
                 created_at TEXT NOT NULL
@@ -212,6 +293,32 @@ impl Database {
             PRAGMA synchronous=NORMAL;",
         )
         .map_err(|e| e.to_string())?;
+
+        // Migration: older installs created the table without source_app_icon.
+        // Add it if missing so existing users keep their history on upgrade.
+        let needs_icon_column: bool = {
+            let mut stmt = conn
+                .prepare("PRAGMA table_info(clipboard_history)")
+                .map_err(|e| e.to_string())?;
+            let rows = stmt
+                .query_map([], |row| row.get::<_, String>(1))
+                .map_err(|e| e.to_string())?;
+            let mut found = false;
+            for row in rows {
+                if row.map_err(|e| e.to_string())? == "source_app_icon" {
+                    found = true;
+                    break;
+                }
+            }
+            !found
+        };
+        if needs_icon_column {
+            conn.execute(
+                "ALTER TABLE clipboard_history ADD COLUMN source_app_icon TEXT",
+                [],
+            )
+            .map_err(|e| e.to_string())?;
+        }
 
         Ok(Database {
             conn: Mutex::new(conn),
@@ -232,9 +339,9 @@ impl Database {
         {
             let conn = self.conn.lock().map_err(|e| e.to_string())?;
             conn.execute(
-                "INSERT OR REPLACE INTO clipboard_history (id, content_type, content, source_app, preview, image_path, created_at)
-                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
-                params![entry.id, entry.content_type, entry.content, entry.source_app, entry.preview, entry.image_path, entry.created_at],
+                "INSERT OR REPLACE INTO clipboard_history (id, content_type, content, source_app, source_app_icon, preview, image_path, created_at)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+                params![entry.id, entry.content_type, entry.content, entry.source_app, entry.source_app_icon, entry.preview, entry.image_path, entry.created_at],
             ).map_err(|e| e.to_string())?;
         }
         self.prune_history()
@@ -255,7 +362,7 @@ impl Database {
         let conn = self.conn.lock().map_err(|e| e.to_string())?;
 
         let mut sql = String::from(
-            "SELECT id, content_type, content, source_app, preview, image_path, created_at FROM clipboard_history WHERE 1=1"
+            "SELECT id, content_type, content, source_app, source_app_icon, preview, image_path, created_at FROM clipboard_history WHERE 1=1"
         );
         let mut bind_values: Vec<String> = Vec::new();
 
@@ -297,9 +404,10 @@ impl Database {
                     content_type: row.get(1)?,
                     content: row.get(2)?,
                     source_app: row.get(3)?,
-                    preview: row.get(4)?,
-                    image_path: row.get(5)?,
-                    created_at: row.get(6)?,
+                    source_app_icon: row.get(4)?,
+                    preview: row.get(5)?,
+                    image_path: row.get(6)?,
+                    created_at: row.get(7)?,
                 })
             })
             .map_err(|e| e.to_string())?;
@@ -341,7 +449,7 @@ impl Database {
         let conn = self.conn.lock().map_err(|e| e.to_string())?;
         let mut stmt = conn
             .prepare(
-                "SELECT id, content_type, content, source_app, preview, image_path, created_at
+                "SELECT id, content_type, content, source_app, source_app_icon, preview, image_path, created_at
              FROM clipboard_history ORDER BY created_at DESC LIMIT 1",
             )
             .map_err(|e| e.to_string())?;
@@ -353,9 +461,10 @@ impl Database {
                     content_type: row.get(1)?,
                     content: row.get(2)?,
                     source_app: row.get(3)?,
-                    preview: row.get(4)?,
-                    image_path: row.get(5)?,
-                    created_at: row.get(6)?,
+                    source_app_icon: row.get(4)?,
+                    preview: row.get(5)?,
+                    image_path: row.get(6)?,
+                    created_at: row.get(7)?,
                 })
             })
             .map_err(|e| e.to_string())?;
