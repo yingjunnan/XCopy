@@ -7,6 +7,7 @@ pub struct ClipboardEntry {
     pub content_type: String,
     pub content: String,
     pub source_app: String,
+    pub source_app_icon: Option<String>,
     pub preview: String,
     pub created_at: String,
     pub image_path: Option<String>,

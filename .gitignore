@@ -31,3 +31,6 @@ images/
 
 # Logs
 *.log
+
+# Superpowers brainstorming mockups (local only)
+.superpowers/

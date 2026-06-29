@@ -3,6 +3,7 @@ export interface ClipboardEntry {
   contentType: 'text' | 'link' | 'image';
   content: string;
   sourceApp: string;
+  sourceAppIcon?: string | null;
   preview: string;
   createdAt: string;
   imagePath?: string;

@@ -13,6 +13,7 @@ const ClipboardItem: React.FC<ClipboardItemProps> = ({ entry, onDelete }) => {
   const [hover, setHover] = useState(false);
   const [copied, setCopied] = useState(false);
   const [imageSrc, setImageSrc] = useState<string | null>(null);
+  const [iconSrc, setIconSrc] = useState<string | null>(null);
 
   useEffect(() => {
     if (entry.contentType === "image" && entry.imagePath) {
@@ -21,6 +22,16 @@ const ClipboardItem: React.FC<ClipboardItemProps> = ({ entry, onDelete }) => {
         .catch(() => setImageSrc(null));
     }
   }, [entry.contentType, entry.imagePath]);
+
+  useEffect(() => {
+    if (!entry.sourceAppIcon) {
+      setIconSrc(null);
+      return;
+    }
+    invoke<string>("read_image_file", { path: entry.sourceAppIcon })
+      .then((data) => setIconSrc(`data:image/png;base64,${data}`))
+      .catch(() => setIconSrc(null));
+  }, [entry.sourceAppIcon]);
 
   const handleCopy = async () => {
     if (entry.contentType === "image") return;
@@ -110,8 +121,17 @@ const ClipboardItem: React.FC<ClipboardItemProps> = ({ entry, onDelete }) => {
               {typeStyles.label}
             </span>
           </span>
-          <span className="min-w-0 flex-1 truncate font-mono text-[11px] text-slate-500">
-            {entry.sourceApp || "未知应用"}
+          <span className="min-w-0 flex-1 flex items-center gap-1.5">
+            {iconSrc && (
+              <img
+                src={iconSrc}
+                alt=""
+                className="h-4 w-4 flex-shrink-0 rounded-[4px] object-cover"
+              />
+            )}
+            <span className="truncate font-mono text-[11px] text-slate-500">
+              {entry.sourceApp || "未知应用"}
+            </span>
           </span>
           <span className="flex-shrink-0 text-[10px] font-medium tabular-nums text-slate-400">
             {timeAgo}

@@ -3,6 +3,7 @@ mod clipboard;
 mod db;
 mod hotkey_hook;
 mod models;
+mod png_encode;
 mod quick_paste;
 mod window_tracker;
 
