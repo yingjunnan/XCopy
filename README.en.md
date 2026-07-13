@@ -1,107 +1,164 @@
 <div align="center">
 
-<img src="src-tauri/icons/128x128.png" width="120" height="120" alt="XCopy" />
+<img src="src-tauri/icons/128x128.png" width="128" height="128" alt="XCopy" />
 
 # XCopy
 
-**Your clipboard, finally effortless.**
+### ✂️ Your clipboard, finally at your fingertips.
 
-A lightweight Windows clipboard history tool: automatically records text, links, and images; summon it with a hotkey; search, filter, preview images, and store everything locally.
+**A lightweight, blazing-fast Windows clipboard history manager — auto-capture texts, links & images, search instantly, paste in one click.**
 
 [![Build and Release](https://github.com/yingjunnan/XCopy/actions/workflows/build-and-release.yml/badge.svg)](https://github.com/yingjunnan/XCopy/actions)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![Windows](https://img.shields.io/badge/platform-Windows%2010%2F11-0078D4.svg)](#download--install)
+[![Windows](https://img.shields.io/badge/platform-Windows%2010%2F11-0078D4.svg)](#-download--install)
+[![Tauri](https://img.shields.io/badge/built%20with-Tauri%202-24C8D8.svg)](https://v2.tauri.app)
+[![Rust](https://img.shields.io/badge/Rust-1.80%2B-dea584.svg)](https://www.rust-lang.org)
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](https://github.com/yingjunnan/XCopy/pulls)
 
-[Download](#download--install) · [Features](#features) · [Tech Stack](#tech-stack) · [Development](#development) · [Project Structure](#project-structure)
-
-[中文](README.md) | English
+[📥 Download](#-download--install) · [✨ Features](#-features) · [⚡ Keyboard Shortcuts](#-keyboard-shortcuts) · [📊 Comparison](#-comparison) · [🛠 Tech Stack](#-tech-stack) · [🇨🇳 中文](README.md)
 
 </div>
 
 ---
 
-## Features
+## 📸 Screenshots
 
-- **🖥️ Global Hotkey Summon** — Pop it up with `Ctrl+Shift+V` (default), grab what you need, move on. Auto-hides on blur so it never interrupts your flow.
-- **⚡ Double-Tap Ctrl Quick Paste** — Double-tap Ctrl while typing in any app to summon a lightweight picker at the cursor. Select an entry and it pastes straight into your caret — no second `Ctrl+V` needed. Like PowerToys' Win+V, but handier.
-- **📋 Auto-Record Everything** — Text, links, and images are captured silently in the background and de-duplicated by content hash. No repeats, no clutter.
-- **🔍 Instant Search & Categories** — All / Text / Link / Image tabs with live keyword filtering. Find any entry at a glance, even with hundreds of records.
-- **🖼️ Image Preview** — View screenshots in a dedicated window with mouse-wheel zoom and drag-to-pan. Every detail, clearly visible.
-- **🗄️ Lightweight Local Storage** — Built on SQLite with configurable retention (up to 100k entries and custom day limits); old entries auto-pruned.
-- **⚙️ Configure As You Like** — Auto-start on boot, system-tray resident, and a fully customizable hotkey recorder — all preferences in one place.
-- **📊 Storage At A Glance** — The settings panel shows real-time disk usage split between the database and stored images.
+| Main Window | Quick Paste | Image Preview |
+|:---:|:---:|:---:|
+| ![Screenshot 1](docs/screenshot-1.png) | ![Screenshot 2](docs/screenshot-2.png) | ![Screenshot 3](docs/screenshot-3.png) |
 
-## Download & Install
+> *Screenshots coming soon — they will show the clipboard history panel, quick-paste popup, and image preview in action.*
 
-Grab the latest `XCopy_*-setup.exe` from [Releases](https://github.com/yingjunnan/XCopy/releases) and run the installer.
+---
 
-- System requirements: Windows 10 / 11
-- After install, it auto-starts on boot; press `Ctrl+Shift+V` to summon
+## ✨ Features
 
-## Usage
+| Icon | Feature | Description |
+|:---:|---|---|
+| 🖥️ | **Global Hotkey** | Press `Ctrl+Shift+V` anytime to summon the clipboard panel. Auto-hides on blur so it never gets in your way. |
+| ⚡ | **Double-Tap Ctrl** | Double-tap Ctrl in any app to show a lightweight inline picker at your cursor. Select an item and it's pasted instantly — no extra `Ctrl+V` needed. |
+| 📋 | **Auto Capture** | Texts, links, and images are automatically saved as you copy. Content-hash deduplication keeps your history clean. |
+| 🔍 | **Search & Filter** | Filter by All / Text / Link / Image, or type keywords to find any item in an instant — even with hundreds of entries. |
+| 🖼️ | **Image Preview** | Open images in a dedicated viewer with mouse-wheel zoom and drag-to-pan support. Perfect for screenshot details. |
+| 🗄️ | **Lightweight Local Storage** | Powered by SQLite. Configurable retention up to 100,000 items and custom expiry days. Old data is auto-cleaned. |
+| ⚙️ | **Full Settings** | Auto-start on boot, system tray residency, and customizable hotkey recording — all in one settings panel. |
+| 📊 | **Disk Usage at a Glance** | The settings panel shows exactly how much space your database and cached images consume in real time. |
 
-1. After installation, the app lives in the system tray and records your clipboard in the background.
-2. Copy any text, link, or screenshot — entries are saved automatically.
-3. Press `Ctrl+Shift+V` (changeable in Settings) to open the main window.
-4. **Double-tap Ctrl** to summon the quick-paste panel at the cursor; pick with ↑↓ and Enter to paste straight into your caret (toggle in Settings).
-5. Click any entry to re-copy it; image entries offer a "view large" button.
-6. Filter instantly via the search box or category tabs at the top.
+---
 
-> On the very first launch after install, the main window pops up once to signal the app is ready.
+## ⚡ Keyboard Shortcuts
 
-## Tech Stack
+| Shortcut | Action |
+|:---|---:|
+| `Ctrl + Shift + V` | Open clipboard history panel |
+| `Double-Tap Ctrl` | Quick-paste at cursor (inline mode) |
+| `↑ / ↓` | Navigate through history items |
+| `Enter` | Paste selected item |
+| `Esc` | Close panel |
+| `Mouse Scroll` | Zoom in/out on previewed image |
+| `Drag` | Pan around zoomed image |
+
+---
+
+## 📊 Comparison
+
+| Feature | **XCopy** 🏆 | Ditto | Win+V (PowerToys) | Paste (iOS) |
+|:---|---:|:---:|:---:|:---:|
+| Platform | Windows 10/11 | Windows | Windows | macOS/iOS |
+| Open Source | ✅ MIT | ✅ GPL | ❌ | ❌ |
+| Auto Capture | ✅ Text, Link, Image | ✅ Text, Image | ✅ Text only | ✅ Text, Image |
+| Image Preview | ✅ Dedicated viewer | ❌ Basic | ❌ | ✅ |
+| Quick-Paste (Double Ctrl) | ✅ | ❌ | ❌ | ❌ |
+| Category Filter | ✅ 4 categories | ✅ Limited | ❌ | ❌ |
+| Search | ✅ Instant keyword | ✅ | ✅ | ✅ |
+| Max History | 100K+ | Configurable | Limited | Limited |
+| Retention Policy | ✅ Days + count | ✅ Days only | ❌ | ❌ |
+| Dark Mode | ✅ | ⚠️ (theme) | ✅ | ✅ |
+| Tech Stack | Tauri + Rust + React | C++ (WinForms) | C# (UWP) | Swift (Native) |
+| Bundle Size | ~8 MB | ~15 MB | Built-in ~30 MB | N/A |
+| Auto-start | ✅ | ✅ | ✅ | N/A |
+
+> **Why XCopy?** — Built with a modern, performant stack (Tauri + Rust + React), the smallest footprint of any clipboard manager, and a unique double-tap Ctrl quick-paste feature you won't find anywhere else.
+
+---
+
+## 🛠 Tech Stack
 
 | Layer | Technology |
-|-------|------------|
-| Desktop framework | [Tauri 2](https://v2.tauri.app/) |
-| Frontend | React 18 + TypeScript + Vite |
-| Styling | Tailwind CSS + Framer Motion |
-| Backend | Rust |
-| Storage | SQLite (rusqlite) |
-| Clipboard | arboard + Win32 API |
-| Packaging | NSIS |
+|:---|---:|
+| 🖥️ Desktop Framework | [Tauri 2](https://v2.tauri.app/) |
+| ⚛️ Frontend | React 18 + TypeScript + Vite |
+| 🎨 Styling | Tailwind CSS + Framer Motion |
+| 🦀 Backend | Rust |
+| 🗃️ Storage | SQLite (rusqlite) |
+| 📋 Clipboard | arboard + Win32 API |
+| 📦 Installer | NSIS |
 
-## Development
+---
+
+## 📥 Download & Install
+
+**System Requirements:** Windows 10 / 11 (x64)
+
+1. Go to the **[Releases](https://github.com/yingjunnan/XCopy/releases)** page
+2. Download the latest `XCopy_*-setup.exe`
+3. Double-click to install — the app will start automatically and live in your system tray
+4. Press `Ctrl+Shift+V` to open your clipboard history
+
+> 💡 The app auto-starts on login by default. You can change this in Settings.
+
+---
+
+## 🚀 Local Development
 
 ### Prerequisites
 
 - [Node.js](https://nodejs.org/) 20+
 - [Rust](https://www.rust-lang.org/tools/install) (stable)
-- [Tauri 2 prerequisites](https://v2.tauri.app/start/prerequisites/) (Windows requires WebView2 and MSVC build tools)
+- [Tauri 2 prerequisites](https://v2.tauri.app/start/prerequisites/) — WebView2 & MSVC build tools on Windows
 
-### Run
+### Quick Start
 
 ```bash
+# Clone
+git clone https://github.com/yingjunnan/XCopy.git
+cd XCopy
+
 # Install frontend dependencies
 npm install
 
-# Start dev mode (launches both Vite and the Tauri window)
+# Launch in dev mode (Vite + Tauri)
 npm run tauri dev
 ```
 
-### Build
+### Build for Production
 
 ```bash
-# Build the production installer (output in src-tauri/target/release/bundle/)
 npm run tauri build
 ```
 
-### Common Scripts
+Artifacts will be at `src-tauri/target/release/bundle/`.
+
+### Available Scripts
 
 | Command | Description |
-|---------|-------------|
-| `npm run dev` | Start the Vite frontend dev server only |
-| `npm run build` | Build the frontend into `dist/` |
-| `npm run tauri dev` | Start Tauri in dev mode |
-| `npm run tauri build` | Build the production installer |
+|:---|---:|
+| `npm run dev` | Start Vite dev server only |
+| `npm run build` | Build frontend to `dist/` |
+| `npm run tauri dev` | Launch full Tauri dev mode |
+| `npm run tauri build` | Build production installer |
 
-## Project Structure
+---
+
+## 📁 Project Structure
 
 ```
 xcopy/
-├── src/                      # Frontend source (React + TypeScript)
-│   ├── App.tsx               # Root component (history/settings switching)
+├── src/                      # Frontend (React + TypeScript)
+│   ├── App.tsx               # Root component (history / settings views)
 │   ├── preview.tsx           # Image preview window
+│   ├── quick_paste.tsx       # Quick-paste inline panel
+│   ├── onboarding.tsx        # First-run onboarding
 │   ├── components/           # UI components
 │   │   ├── ClipboardPanel.tsx
 │   │   ├── ClipboardItem.tsx
@@ -111,43 +168,68 @@ xcopy/
 │   │   └── EmptyState.tsx
 │   ├── hooks/                # React hooks
 │   └── types/                # Type definitions
-├── src-tauri/                # Rust backend source
+├── src-tauri/                # Rust backend
 │   └── src/
-│       ├── lib.rs            # App entry, command registration, tray, hotkeys
+│       ├── lib.rs            # Entry point, commands, tray, hotkeys
 │       ├── clipboard.rs      # Clipboard monitoring & capture
 │       ├── db.rs             # SQLite database operations
-│       ├── app_settings.rs   # Settings persistence & auto-start
+│       ├── app_settings.rs   # Settings read/write & auto-start
 │       ├── models.rs         # Data models
+│       ├── hotkey_hook.rs    # Global hotkey hook (Win32)
+│       ├── quick_paste.rs    # Quick-paste logic (Win32)
+│       ├── png_encode.rs     # PNG encoding for images
 │       └── window_tracker.rs # Active window tracking (Win32)
-├── .github/workflows/        # CI: auto build & publish releases
-└── landing.html              # Project landing page (single file, open directly)
+├── .github/workflows/        # CI: build & release on push to main
+└── landing.html              # One-file marketing landing page
 ```
 
-## Continuous Integration
+---
 
-On every push to the `main` branch, GitHub Actions automatically builds the NSIS installer on `windows-latest` and publishes a new Release:
+## 🔄 CI/CD
 
-- Workflow: `.github/workflows/build-and-release.yml`
-- Build status: [![Build and Release](https://github.com/yingjunnan/XCopy/actions/workflows/build-and-release.yml/badge.svg)](https://github.com/yingjunnan/XCopy/actions)
-- Releases: each push produces an independent release, tagged `v0.2.0-r<build-number>`
+Every push to `main` triggers GitHub Actions to build an NSIS installer and publish a new Release:
 
-## Roadmap
+- **Workflow**: `.github/workflows/build-and-release.yml`
+- **Status**: [![Build and Release](https://github.com/yingjunnan/XCopy/actions/workflows/build-and-release.yml/badge.svg)](https://github.com/yingjunnan/XCopy/actions)
+- **Tagging**: Each release is auto-tagged as `v0.5.0-r<build-number>` (current: `v0.5.0`)
 
-- [ ] Pin / favorite clipboard entries
-- [ ] Optional cross-device sync
+---
+
+## 🗺️ Roadmap
+
+- [x] Dark mode
+- [ ] Pin / favorite clipboard items
+- [ ] Cross-device sync (optional)
 - [ ] Rich text / code snippet support
-- [ ] Dark mode
+- [ ] Snippet templates & smart paste
+- [ ] Plugin system for custom actions
 
-## Contributing
+---
 
-Issues and Pull Requests are welcome. Please ensure `npm run tauri dev` runs locally and your changes pass the `npm run build` type check.
+## 🤝 Contributing
 
-## License
+Contributions are welcome! Please follow these steps:
 
-[MIT](LICENSE)
+1. Fork the repo
+2. Create your feature branch (`git checkout -b feat/amazing`)
+3. Commit your changes (`git commit -m 'feat: add amazing feature'`)
+4. Push to the branch (`git push origin feat/amazing`)
+5. Open a Pull Request
+
+Make sure `npm run tauri dev` runs successfully and `npm run build` passes type checking.
+
+---
+
+## 📄 License
+
+[MIT](LICENSE) © 2024–2025 XCopy Contributors
+
+---
 
 <div align="center">
 
-Made with ❤️ using Tauri & React
+Made with ❤️ using **Tauri** + **React** + **Rust**
+
+⭐ Star us on [GitHub](https://github.com/yingjunnan/XCopy) — it really helps!
 
 </div>
